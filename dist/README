@@ -1,0 +1,1 @@
+Some tools. The worksh, sqld (SQLite server with HTTP/WS JSON RPC API), and wex (local file server) require node.js (>8) with some additional modules. Install the requested modules on start-up, e.g., the worksh.
