@@ -47,7 +47,7 @@ Workers provide a service loop that proecsses code and function request by the p
 
 ## Distributed Computing
 
-A WorkShell can provided a Web (HTTP/WS) service API that enables scripts to create and access workers on WorkShell remotely, basically from within the WorkBook.
+A WorkShell can provide a Web (HTTP/WS) service API that enables scripts to create and access workers on WorkShell remotely, basically from within the WorkBook.
 To enable the WotkShell service API start the Workshell witgh the following options:
 
 ```
