@@ -1,5 +1,13 @@
 # PSciLAB: Hybrid Distributed-Parallel Scientific Software Laboratory
 
+## Author
+
+```
+PD Dr. Stefan Bosse
+Institute for Digitisation and Sensor Data Science
+28359 Bremen, Germany
+```
+
 ## Components
 
 ### WorkBook
