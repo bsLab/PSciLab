@@ -67,7 +67,26 @@ Data is stored and exchanged by worker processes using a SQLite data base (or mu
 A *sqld* server can be cold started by providing a directory where sql data bases can be stored:
 
 ```
-sqld -d /home/user/data
+sqld -d /home/user/data:9999
 ```
 
 The *sqld* server requires the *better-sqlite@2.10* module that must be installed by *npm*.
+
+A WorkBook or WorkShell script can create and access data bases the following way:
+
+```javascript
+load('math.plugin')
+var db = DB.sqlA('localhost:9999');
+print(await db.databases())
+var stat = await db.createDB('mydb1');
+// will be created in /home/user/data/mydb1.db
+if (Utils.isError(stat)) print('failed');
+var stat = await db.create('mytab1',{id:'int unique', name:'text', data:'blob'}); 
+if (Utils.isError(stat)) print('failed');
+db.insert('mytab1',{
+  id:1,
+  name:'data1',
+  data:Math.MatrixTA.Random(4,3).data
+})
+print(await db.select('mytab1','id,name'))
+```
