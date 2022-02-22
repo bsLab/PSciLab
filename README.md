@@ -60,3 +60,14 @@ print(result) // 4
 worker.kill()
 ```
 
+## Data Management
+
+Data is stored and exchanged by worker processes using a SQLite data base (or multiple). The *sqld* server provides a RPC communication interface to create and access data bases using JSON queries.
+
+A *sqld* server can be cold started by providing a directory where sql data bases can be stored:
+
+```
+sqld -d /home/user/data
+```
+
+The *sqld* server requires the *better-sqlite@2.10* module that must be installed by *npm*.
