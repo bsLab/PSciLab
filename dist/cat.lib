@@ -1,0 +1,4552 @@
+var CoreModule = {};
+CoreModule['com/io']='com/io';
+CoreModule['com/pwgen']='com/pwgen.lw';
+CoreModule['assert']='os/assert';
+CoreModule['crypto']='os/crypto.rand';
+CoreModule['events']='os/events';
+CoreModule['path']='os/path';
+CoreModule['string_decoder']='os/string_decoder';
+CoreModule['util']='util';
+CoreModule['http']='http';
+CoreModule['deasync']='deasync';
+CoreModule['os']='os';
+CoreModule['net']='net';
+CoreModule['fs']='fs';
+CoreModule['stream']='';
+CoreModule['url']='';
+CoreModule['zlib']='';
+CoreModule['child_process']='';
+
+var BundleModuleCode=[];
+var BundleObjectCode=[];
+var BundleModules = [];
+var Fs = require("fs");
+if (typeof __dirname == 'undefined') __dirname = '';
+if (typeof __filename == 'undefined') __filename = 'plugins/ca/cat.lib.js';
+//From compat.js
+var any = undefined;
+var empty = null;
+var none = null;
+var _ = undefined;
+var int = function (v) {return v|0};
+var div = function (a,b) {return a/b|0};
+var print = function (msg) {console.log(msg)};
+if (typeof global == 'undefined') global={};
+PATH=[process.cwd(),".","/home/sbosse/proj/workbook/src",""];
+function _isdir(path) {
+  var stats=Fs.statSync(path);
+  return stats && stats.isDirectory()};
+function _search(index,file) {
+  if (PATH.length==index) return file;
+  var path=PATH[index];
+  if (Fs.existsSync(path+"/"+file+".js")) return path+"/"+file+".js";
+  else if (Fs.existsSync(path+"/"+file) && !_isdir(path+"/"+file)) return path+"/"+file;
+  else return _search(index+1,file);
+ }
+var __library=arguments&&arguments[3];
+function Require(modupath) { 
+  var file,filepath;
+  if (BundleModules[modupath]) return BundleModules[modupath];
+  var exports={}; var module={exports:exports};
+  if (CoreModule[modupath]!=undefined) modupath=CoreModule[modupath];
+  if (modupath=='') return undefined;
+  if (BundleModuleCode[modupath]) BundleModuleCode[modupath](module,exports,global,process);
+  else if (BundleObjectCode[modupath]) BundleObjectCode[modupath](module,exports,global,process);
+  else { try { file=_search(0,modupath); module = require(file)}
+  catch (e) { var more="";
+   if ((e.name==="SyntaxError"||e.name==="TypeError") && file) {
+      var src=Fs.readFileSync(file,"utf8");
+      var Esprima = Require("parser/esprima");
+      try {
+        var ast = Esprima.parse(src, { tolerant: true, loc:true });
+        if (ast.errors && ast.errors.length>0) more = ", "+ast.errors[0];
+      } catch (e) {
+        if (e.lineNumber) more = ", in line "+e.lineNumber;
+      }
+   }
+   console.log("Require import of "+modupath+" ("+file+") failed: "+e+more);
+   // if (e.stack) console.log(e.stack);
+   throw e; // process.exit(-1);
+  }}
+  BundleModules[modupath]=module.exports||module;
+  return module.exports||module;};
+FilesEmbedded=global.FilesEmbedded = {};
+FileEmbedd=global.FileEmbedd = function (path,format) {};
+FileEmbedded=global.FileEmbedded = function (path,format) {return FilesEmbedded[path](format);};
+global.TARGET='node';
+
+BundleModuleCode['com/io']=function (module,exports,global,process){
+/**
+ **      ==================================
+ **      OOOO   OOOO OOOO  O      O   OOOO
+ **      O   O  O    O     O     O O  O   O
+ **      O   O  O    O     O     O O  O   O
+ **      OOOO   OOOO OOOO  O     OOO  OOOO
+ **      O   O     O    O  O    O   O O   O
+ **      O   O     O    O  O    O   O O   O
+ **      OOOO   OOOO OOOO  OOOO O   O OOOO
+ **      ==================================
+ **      BSSLAB, Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR.
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2020 BSSLAB
+ **    $CREATED:     sbosse on 3/28/15.
+ **    $VERSION:     1.7.1X
+ **
+ **    $INFO:
+ *
+ * This module encapsulates all IO operations (except networking) supporting
+ * node.js applications.
+ *
+ **    $ENDOFINFO
+ */
+
+if (global.TARGET=='node')  { 
+
+ /*
+  ************
+  ** Node.js
+  ************
+  */
+ var util = require('util');
+ var GetEnv = Require('os/getenv');
+ var Base64 = Require('os/base64');
+ var Fs = require('fs');
+ var os = require('os');
+ var child = require('child_process');
+
+ var stderr_fun = function (str) { process.stderr.write(str); };
+ var stdout_fun = function (str) { process.stdout.write(str); };
+
+ /*
+  ** node.js specific
+  */
+
+ var tracefile = undefined;
+ var tracing = true;
+
+ /**
+ * Open a module and append all exported properties to the current global object.
+ * (top-level scope)
+ */
+ global.open = function(name,as) {
+   var module = Require(name);
+   for (var p in module) {
+     global[p] = module[p];
+   };
+   if (as) global[as]=module;
+ }
+
+/*
+ ** node.js
+ */
+var io = {
+    checkOptions : function(options,defaultOptions) {
+      return Object.assign({}, defaultOptions||{}, options) },
+      
+    checkOption : function (option,defaultOption) { 
+      return option==undefined? defaultOption:option },
+
+    config: {
+        columns:undefined,
+        rows:undefined
+    },
+    /**************
+     ** FILE IO
+     ***************/
+    /**
+     *
+     * @param fd
+     */
+    close: function (fd) {
+        Fs.closeSync(fd);
+    },
+    /**
+     *
+     * @param path
+     */
+    exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /**
+     *
+     * @param path
+     */
+    file_exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /** Search a file by iterating global PATH variable.
+     *
+     * @param name  File name or partial (relative) path
+     */
+    file_search: function (name) {
+        // Expecting global PATH variable !?
+        if (this.file_exists(name)) return name; 
+        else if (typeof PATH !== 'undefined') {
+          for (var p in PATH) {
+            if (this.file_exists(PATH[p]+'/'+name)) return (PATH[p]+'/'+name);
+          }
+          return undefined;
+        } else return undefined;
+    },
+    /**
+     *
+     * @param path
+     * @returns {number}
+     */
+    file_size: function (path) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            return stat.size;
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param timekind a c m
+     * @returns {number}
+     */
+    file_time: function (path,timekind) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            switch (timekind) {
+                case 'a': return stat.atime.getTime()/1000;
+                case 'c': return stat.ctime.getTime()/1000;
+                case 'm': return stat.mtime.getTime()/1000;
+                default: return stat.mtime.getTime()/1000;
+            }
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param mode
+     * @returns {*}
+     */
+    open: function (path, mode) {
+        return Fs.openSync(path, mode);
+    },
+    /**
+     *
+     * @param fd
+     * @param len
+     * @param foff
+     */
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    /**
+     *
+     * @param path
+     * @returns {string|undefined}
+     */
+    read_file: function (path) {
+        try {
+            return Fs.readFileSync(path,'utf8');
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @returns {*}
+     */
+    read_file_bin: function (path) {
+        try {
+            return Fs.readFileSync(path);
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param fd
+     */
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {number}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return Fs.readSync(fd, buf, boff, len, foff);
+    },
+    /**
+     *
+     * @param fd
+     */
+    sync: function (fd) {
+        Fs.fsyncSync(fd);
+    },
+    
+    time: function () {
+      return Date.now()
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {number}
+     */
+    write: function (fd, data, foff) {
+        return Fs.writeSync(fd, data, foff);
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {number}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return Fs.writeSync(fd, buf, bpos, blen, foff);
+    },
+    /**
+     *
+     * @param path
+     * @param {string} buf
+     */
+    write_file: function (path,str) {
+        try {
+            Fs.writeFileSync(path, str, 'utf8');
+            return str.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @param buf
+     * @returns {*}
+     */
+    write_file_bin: function (path,buf) {
+        try {
+            Fs.writeFileSync(path, buf, 'binary');
+            return buf.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param fd
+     * @param {string} str
+     * @returns {number}
+     */
+    write_line: function (fd, str) {
+        return Fs.writeSync(fd, str+NL);
+    },
+
+    /****************
+     ** CONSOLE IO
+     ****************/
+    /**
+     *
+     * @param msg
+     */
+    debug: function (msg) {
+        console.error('Debug: ' + msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    err: function (msg) {
+        console.error('Error: ' + msg);
+        throw Error(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    fail: function (msg) {
+        console.error('Fatal Error: ' + msg);
+        process.exit(0);
+    },
+    /**
+     *
+     * @param obj
+     */
+    inspect: function (obj,depth) {return util.inspect(obj,{showHidden: false, 
+                                                            depth: depth?depth:2})},
+
+    /**
+     * 
+     */
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (!e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        if (where==undefined) this.out(e);
+        else this.out(where+': '+e);
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+     /**
+     *
+     * @param e
+     * @param where
+     */
+    sprintstack: function (e) {
+        var str='';
+        if (e==_ || !e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .replace(/^Object.eval\s*\(/gm, '')
+            .split('\n');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                if (str!='') str += '\n';
+                str += '  at '+line;
+            }
+        }
+        return str;
+    },
+   /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    out: function (msg) {
+        console.warn(msg)
+    },
+    /**
+     *
+     * @param msg
+     */
+    warn: function (msg) {
+        console.warn('Warning: ' + msg);
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+    /**
+     *
+     * @param msg
+     */
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            Fs.writeSync(tracefile, '[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        tracefile = Fs.openSync(path, 'w+');
+        if (tracefile != undefined) this.tracing = false;
+    },
+
+    /**************
+     ** Process control
+     ***************/
+    exit: function (n) {
+        process.exit(n);
+    },
+    /**
+     *
+     * @returns {*} RSS HEAP in kBytes {data,heap}
+     */
+    mem: function () {
+        var mem = process.memoryUsage();
+        return {data:(mem.rss/1024)|0,heap:(mem.heapUsed/1024)|0};
+    },
+    /****************************
+     ** Environment and Arguments
+     ****************************/
+    getenv: function (name, def) {
+        return GetEnv(name, def);
+    },
+    workdir: function () {
+        return this.getenv('PWD','');
+    },
+
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return process.argv;
+    },
+
+    sleep: function(delay) {
+      var start = new Date().getTime();
+      while (new Date().getTime() < start + delay);
+    },
+    
+    /**
+     *  Process management
+     */
+    fork: child.fork,
+    exec: child.exec,
+    spawn: child.spawn,
+
+    /**
+     * OS
+     */
+    hostname: os.hostname
+
+  };
+} else {
+ /*
+  ************
+  ** Browser
+  ************
+  */
+  var tracing = true;
+  var stderr_fun = function (str) { console.log(str); };
+  var stdout_fun = function (str) { console.log(str); };
+  var args=[];
+
+  /**
+  * Open a module and append all exported properties to the current global object.
+  * (top-level scope)
+  */
+  global.open = function(name,as) {
+    var module = Require(name);
+    for (var p in module) {
+      global[p] = module[p];
+    };
+    if (as) global[as]=module;
+  }
+  
+  var io = {
+    /*
+    ************
+    ** Browser
+    ************
+    */
+    /*
+     ** FILE IO
+     * TODO WebStorage
+     */
+    close: function (fd) {
+        return;
+    },
+    exists: function (path) {
+        return false;
+    },
+    open: function (path, mode) {
+        var fd = Fs.openSync(path, mode);
+        return fd;
+    },
+
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    read_file: function (path) {
+        return '';
+    },
+
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {*}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return -1;
+    },
+    sync: function (fd) {
+        return;
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {*}
+     */
+    write: function (fd, data, foff) {
+        return -1;
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {*}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return -1;
+    },
+
+    /*
+     ** CONSOLE IO
+     */
+    debug: function (msg) {
+        stderr_fun('Debug: ' + msg);
+    },
+    err: function (msg) {
+        stderr_fun('Error: ' + msg);
+        throw Error(msg);
+    },
+    fail: function (msg) {
+        stderr_fun('Fatal Error: ' + msg);
+    },
+    inspect: function (obj) {
+        return;
+    },
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        stderr_fun('Stack Trace');
+        stderr_fun('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                stderr_fun(line);
+            }
+        }
+        stderr_fun('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (where==undefined) stderr_fun(e);
+        else stderr_fun(where+': '+e);
+    },
+    /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    out: function (msg) {
+        stdout_fun(msg)
+    },
+    warn: function (msg) {
+        stderr_fun('Warning: ' + msg);
+    },
+
+
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            this.log('[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        return undefined;
+    },
+
+    exit: function (n) {
+        return;
+    },
+    getenv: function (name, def) {
+        return def;
+    },
+    workdir: function () {
+        return '';
+    },
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return args;
+    },
+    set_args: function (argv) {
+        args=argv;
+    },
+    inspect: function (o) {return '?'}
+  };
+}  
+module.exports = io;
+};
+BundleModuleCode['os/getenv']=function (module,exports,global,process){
+var util = require("util");
+var url = require("url");
+
+var fallbacksDisabled = false;
+
+function _value(varName, fallback) {
+  var value = process.env[varName];
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new Error('GetEnv.Nonexistent: ' + varName + ' does not exist ' +
+                      'and no fallback value provided.');
+    }
+    if (fallbacksDisabled) {
+      throw new Error('GetEnv.DisabledFallbacks: ' + varName + ' relying on fallback ' + 
+                      'when fallbacks have been disabled');
+    }
+    return '' + fallback;
+  }
+  return value;
+}
+
+var convert = {
+  string: function(value) {
+    return '' + value;
+  },
+  int: function(value) {
+    var isInt = value.match(/^-?\d+$/);
+    if (!isInt) {
+      throw new Error('GetEnv.NoInteger: ' + value + ' is not an integer.');
+    }
+
+    return +value;
+  },
+  float: function(value) {
+    var isInfinity = (+value === Infinity || +value === -Infinity);
+    if (isInfinity) {
+      throw new Error('GetEnv.Infinity: ' + value + ' is set to +/-Infinity.');
+    }
+
+    var isFloat = !(isNaN(value) || value === '');
+    if (!isFloat) {
+      throw new Error('GetEnv.NoFloat: ' + value + ' is not a number.');
+    }
+
+    return +value;
+  },
+  bool: function(value) {
+    var isBool = (value === 'true' || value === 'false');
+    if (!isBool) {
+      throw new Error('GetEnv.NoBoolean: ' + value + ' is not a boolean.');
+    }
+
+    return (value === 'true');
+  },
+  url: url.parse
+};
+
+function converter(type) {
+  return function(varName, fallback) {
+    if(typeof varName == 'string') { // default
+      var value = _value(varName, fallback);
+      return convert[type](value);
+    } else { // multibert!
+      return getenv.multi(varName);
+    }
+  };
+};
+
+var getenv = converter('string');
+
+Object.keys(convert).forEach(function(type) {
+  getenv[type] = converter(type);
+});
+
+getenv.array = function array(varName, type, fallback) {
+  type = type || 'string';
+  if (Object.keys(convert).indexOf(type) === -1) {
+    throw new Error('GetEnv.ArrayUndefinedType: Unknown array type ' + type);
+  }
+  var value = _value(varName, fallback);
+  return value.split(/\s*,\s*/).map(convert[type]);
+};
+
+getenv.multi = function multi(spec) {
+  var key, value;
+  var result = {};
+  for(var key in spec) {
+    var value = spec[key];
+    if(util.isArray(value)) { // default value & typecast
+      switch(value.length) {
+        case 1: // no default value
+        case 2: // no type casting
+          result[key] = getenv(value[0], value[1]); // dirty, when case 1: value[1] is undefined
+        break;
+        case 3: // with typecast
+          result[key] = getenv[value[2]](value[0], value[1]);
+          break;
+        default: // wtf?
+          throw('getenv.multi(): invalid spec');
+          break;
+      }
+    } else { // value or throw
+      result[key] = getenv(value);
+    }
+  }
+  return result;
+};
+
+getenv.disableFallbacks = function() {
+  fallbacksDisabled = true;
+};
+
+getenv.enableFallbacks = function() {
+  fallbacksDisabled = false;
+};
+
+module.exports = getenv;
+};
+BundleModuleCode['os/base64']=function (module,exports,global,process){
+var keyStr = "ABCDEFGHIJKLMNOP" +
+               "QRSTUVWXYZabcdef" +
+               "ghijklmnopqrstuv" +
+               "wxyz0123456789+/" +
+               "=";
+var Buffer=Require('buffer').Buffer;
+var Base64 = {
+  encode: function (input) {
+     input = escape(input);
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     do {
+        chr1 = input.charCodeAt(i++);
+        chr2 = input.charCodeAt(i++);
+        chr3 = input.charCodeAt(i++);
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < input.length);
+
+     return output;
+  },
+
+  encodeBuf: function (input) {
+     var output = "";
+     var NaN = output.charCodeAt(2);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var len = input.length;
+     do {
+        chr1 = input.readUInt8(i++);
+        chr2 = (i<len)?input.readUInt8(i++):NaN;
+        chr3 = (i<len)?input.readUInt8(i++):NaN;
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < len);
+
+     return output;
+  },
+
+  decode: function (input) {
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output = output + String.fromCharCode(chr1);
+
+        if (enc3 != 64) {
+           output = output + String.fromCharCode(chr2);
+        }
+        if (enc4 != 64) {
+           output = output + String.fromCharCode(chr3);
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return unescape(output);
+  },
+  decodeBuf: function (input) {
+     var len = input.length;
+     var buf = new Buffer(len);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var buflen = 0;
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+     buf.fill(0);
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        buf.writeUInt8(chr1,buflen);
+        buflen++;
+        if (enc3 != 64) {
+          buf.writeUInt8(chr2,buflen);
+          buflen++;
+        }
+        if (enc4 != 64) {
+            buf.writeUInt8(chr3,buflen);
+            buflen++;
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return buf.slice(0,buflen);
+  }
+
+};
+
+
+module.exports = Base64;
+};
+BundleModuleCode['com/path']=function (module,exports,global,process){
+var process = process || {};
+(function () {
+  "use strict";
+
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+var isWindows = process.platform === 'win32';
+var util = Require('util');
+
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+
+if (isWindows) {
+  // Regex to split a windows path into three parts: [*, device, slash,
+  // tail] windows-only
+  var splitDeviceRe =
+      /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
+
+  // Regex to split the tail part of the above into [*, dir, basename, ext]
+  var splitTailRe =
+      /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
+
+  // Function to split a filename into [root, dir, basename, ext]
+  // windows version
+  var splitPath = function(filename) {
+    // Separate device+slash from tail
+    var result = splitDeviceRe.exec(filename),
+        device = (result[1] || '') + (result[2] || ''),
+        tail = result[3] || '';
+    // Split the tail into dir, basename and extension
+    var result2 = splitTailRe.exec(tail),
+        dir = result2[1],
+        basename = result2[2],
+        ext = result2[3];
+    return [device, dir, basename, ext];
+  };
+
+  var normalizeUNCRoot = function(device) {
+    return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
+  };
+
+  // path.resolve([from ...], to)
+  // windows version
+  exports.resolve = function() {
+    var resolvedDevice = '',
+        resolvedTail = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1; i--) {
+      var path;
+      if (i >= 0) {
+        path = arguments[i];
+      } else if (!resolvedDevice) {
+        path = process.cwd();
+      } else {
+        // Windows has the concept of drive-specific current working
+        // directories. If we've resolved a drive letter but not yet an
+        // absolute path, get cwd for that drive. We're sure the device is not
+        // an unc path at this points, because unc paths are always absolute.
+        path = process.env['=' + resolvedDevice];
+        // Verify that a drive-local cwd was found and that it actually points
+        // to our drive. If not, default to the drive's root.
+        if (!path || path.substr(0, 3).toLowerCase() !==
+            resolvedDevice.toLowerCase() + '\\') {
+          path = resolvedDevice + '\\';
+        }
+      }
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      var result = splitDeviceRe.exec(path),
+          device = result[1] || '',
+          isUnc = device && device.charAt(1) !== ':',
+          isAbsolute = exports.isAbsolute(path),
+          tail = result[3];
+
+      if (device &&
+          resolvedDevice &&
+          device.toLowerCase() !== resolvedDevice.toLowerCase()) {
+        // This path points to another device so it is not applicable
+        continue;
+      }
+
+      if (!resolvedDevice) {
+        resolvedDevice = device;
+      }
+      if (!resolvedAbsolute) {
+        resolvedTail = tail + '\\' + resolvedTail;
+        resolvedAbsolute = isAbsolute;
+      }
+
+      if (resolvedDevice && resolvedAbsolute) {
+        break;
+      }
+    }
+
+    // Convert slashes to backslashes when `resolvedDevice` points to an UNC
+    // root. Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      resolvedDevice = normalizeUNCRoot(resolvedDevice);
+    }
+
+    // At this point the path should be resolved to a full absolute path,
+    // but handle relative paths to be safe (might happen when process.cwd()
+    // fails)
+
+    // Normalize the tail path
+
+    function f(p) {
+      return !!p;
+    }
+
+    resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/).filter(f),
+                                  !resolvedAbsolute).join('\\');
+
+    return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
+           '.';
+  };
+
+  // windows version
+  exports.normalize = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = device && device.charAt(1) !== ':',
+        isAbsolute = exports.isAbsolute(path),
+        tail = result[3],
+        trailingSlash = /[\\\/]$/.test(tail);
+
+    // If device is a drive letter, we'll normalize to lower case.
+    if (device && device.charAt(1) === ':') {
+      device = device[0].toLowerCase() + device.substr(1);
+    }
+
+    // Normalize the tail path
+    tail = normalizeArray(tail.split(/[\\\/]+/).filter(function(p) {
+      return !!p;
+    }), !isAbsolute).join('\\');
+
+    if (!tail && !isAbsolute) {
+      tail = '.';
+    }
+    if (tail && trailingSlash) {
+      tail += '\\';
+    }
+
+    // Convert slashes to backslashes when `device` points to an UNC root.
+    // Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      device = normalizeUNCRoot(device);
+    }
+
+    return device + (isAbsolute ? '\\' : '') + tail;
+  };
+
+  // windows version
+  exports.isAbsolute = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = !!device && device.charAt(1) !== ':';
+    // UNC paths are always absolute
+    return !!result[2] || isUnc;
+  };
+
+  // windows version
+  exports.join = function() {
+    function f(p) {
+      if (!util.isString(p)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      return p;
+    }
+
+    var paths = Array.prototype.filter.call(arguments, f);
+    var joined = paths.join('\\');
+
+    // Make sure that the joined path doesn't start with two slashes, because
+    // normalize() will mistake it for an UNC path then.
+    //
+    // This step is skipped when it is very clear that the user actually
+    // intended to point at an UNC path. This is assumed when the first
+    // non-empty string arguments starts with exactly two slashes followed by
+    // at least one more non-slash character.
+    //
+    // Note that for normalize() to treat a path as an UNC path it needs to
+    // have at least 2 components, so we don't filter for that here.
+    // This means that the user can use join to construct UNC paths from
+    // a server name and a share name; for example:
+    //   path.join('//server', 'share') -> '\\\\server\\share\')
+    if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
+      joined = joined.replace(/^[\\\/]{2,}/, '\\');
+    }
+
+    return exports.normalize(joined);
+  };
+
+  // path.relative(from, to)
+  // it will solve the relative path from 'from' to 'to', for instance:
+  // from = 'C:\\orandea\\test\\aaa'
+  // to = 'C:\\orandea\\impl\\bbb'
+  // The output of the function should be: '..\\..\\impl\\bbb'
+  // windows version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from);
+    to = exports.resolve(to);
+
+    // windows is not case sensitive
+    var lowerFrom = from.toLowerCase();
+    var lowerTo = to.toLowerCase();
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var toParts = trim(to.split('\\'));
+
+    var lowerFromParts = trim(lowerFrom.split('\\'));
+    var lowerToParts = trim(lowerTo.split('\\'));
+
+    var length = Math.min(lowerFromParts.length, lowerToParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (lowerFromParts[i] !== lowerToParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    if (samePartsLength == 0) {
+      return to;
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < lowerFromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('\\');
+  };
+
+  exports.sep = '\\';
+  exports.delimiter = ';';
+
+} else /* posix */ {
+
+  // Split a filename into [root, dir, basename, ext], unix version
+  // 'root' is just a slash, or nothing.
+  var splitPathRe =
+      /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+  var splitPath = function(filename) {
+    return splitPathRe.exec(filename).slice(1);
+  };
+
+  // path.resolve([from ...], to)
+  // posix version
+  exports.resolve = function() {
+    var resolvedPath = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+      var path = (i >= 0) ? arguments[i] : process.cwd();
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      resolvedPath = path + '/' + resolvedPath;
+      resolvedAbsolute = path.charAt(0) === '/';
+    }
+
+    // At this point the path should be resolved to a full absolute path, but
+    // handle relative paths to be safe (might happen when process.cwd() fails)
+
+    // Normalize the path
+    resolvedPath = normalizeArray(resolvedPath.split('/').filter(function(p) {
+      return !!p;
+    }), !resolvedAbsolute).join('/');
+
+    return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+  };
+
+  // path.normalize(path)
+  // posix version
+  exports.normalize = function(path) {
+    var isAbsolute = exports.isAbsolute(path),
+        trailingSlash = path[path.length - 1] === '/',
+        segments = path.split('/'),
+        nonEmptySegments = [];
+
+    // Normalize the path
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i]) {
+        nonEmptySegments.push(segments[i]);
+      }
+    }
+    path = normalizeArray(nonEmptySegments, !isAbsolute).join('/');
+
+    if (!path && !isAbsolute) {
+      path = '.';
+    }
+    if (path && trailingSlash) {
+      path += '/';
+    }
+
+    return (isAbsolute ? '/' : '') + path;
+  };
+
+  // posix version
+  exports.isAbsolute = function(path) {
+    return path.charAt(0) === '/';
+  };
+
+  // posix version
+  exports.join = function() {
+    var path = '';
+    for (var i = 0; i < arguments.length; i++) {
+      var segment = arguments[i];
+      if (!util.isString(segment)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      if (segment) {
+        if (!path) {
+          path += segment;
+        } else {
+          path += '/' + segment;
+        }
+      }
+    }
+    return exports.normalize(path);
+  };
+
+
+  // path.relative(from, to)
+  // posix version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from).substr(1);
+    to = exports.resolve(to).substr(1);
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var fromParts = trim(from.split('/'));
+    var toParts = trim(to.split('/'));
+
+    var length = Math.min(fromParts.length, toParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (fromParts[i] !== toParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < fromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('/');
+  };
+
+  exports.sep = '/';
+  exports.delimiter = ':';
+}
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+
+exports.exists = util.deprecate(function(path, callback) {
+  require('fs').exists(path, callback);
+}, 'path.exists is now called `fs.exists`.');
+
+
+exports.existsSync = util.deprecate(function(path) {
+  return require('fs').existsSync(path);
+}, 'path.existsSync is now called `fs.existsSync`.');
+
+
+if (isWindows) {
+  exports._makeLong = function(path) {
+    // Note: this will *probably* throw somewhere.
+    if (!util.isString(path))
+      return path;
+
+    if (!path) {
+      return '';
+    }
+
+    var resolvedPath = exports.resolve(path);
+
+    if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
+      // path is local filesystem path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\' + resolvedPath;
+    } else if (/^\\\\[^?.]/.test(resolvedPath)) {
+      // path is network UNC path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\UNC\\' + resolvedPath.substring(2);
+    }
+
+    return path;
+  };
+} else {
+  exports._makeLong = function(path) {
+    return path;
+  };
+}
+}());
+};
+BundleModuleCode['com/sprintf']=function (module,exports,global,process){
+(function(window) {
+    var re = {
+        not_string: /[^s]/,
+        number: /[diefg]/,
+        json: /[j]/,
+        not_json: /[^j]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function(parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && re.not_json.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                    break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                    break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                    break
+                    case "j":
+                        arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                    break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                    break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                    break
+                    case "g":
+                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
+                    break
+                    case "o":
+                        arg = arg.toString(8)
+                    break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                    break
+                    case "u":
+                        arg = arg >>> 0
+                    break
+                    case "x":
+                        arg = arg.toString(16)
+                    break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                    break
+                }
+                if (re.json.test(match[8])) {
+                    output[output.length] = arg
+                }
+                else {
+                    if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                        sign = is_positive ? "+" : "-"
+                        arg = arg.toString().replace(re.sign, "")
+                    }
+                    else {
+                        sign = ""
+                    }
+                    pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                    pad_length = match[6] - (sign + arg).length
+                    pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                    output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+                }
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function(fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            try {_fmt = _fmt.substring(match[0].length)} catch (e) {throw new SyntaxError("[sprintf] unexpected fromat")}
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function(fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+     */
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function() {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+})(typeof window === "undefined" ? this : window);
+};
+BundleModuleCode['plugins/ca/cat.lib.js']=function (module,exports,global,process){
+var cellauto = Require('plugins/ca/cellauto.js');
+var RTree   = Require('plugins/rtree/rtree');
+var RBush   = Require('plugins/rtree/rbush');
+var RBushKnn = Require('plugins/rtree/rbush-knn');
+
+CAs = [];
+CA = {
+  caIndex : 1,
+  cellauto : cellauto,
+
+  clear : function (id) {
+    CAs[id].clear();
+    if (!CAs[id].options.headless) $('#counter-'+id).text('');
+  },
+
+  create : function (options) {
+    var id=CA.caIndex++,
+        width = options.model.columns*options.model.cell.size,
+        height = options.model.rows*options.model.cell.size,        
+        idx='ca'+id;
+    options=options||{};
+    CAs[idx]={options:options}
+    CA.setup(idx);
+    return idx;
+  },
+  
+  init : function (id) {
+    CAs[id].init();
+  },
+  
+  setup : function (id) {
+    var options=CAs[id].options,pixels=[],
+        g_stepFrames=1,frames=0;
+    try {
+        var world;
+        if (typeof options.model == 'function') world = options.model(cellauto);
+        else if (typeof options.model == 'object') {
+          if (!options.model.rows ||
+              !options.model.columns||
+              !options.model.palette||
+              !options.model.palette.length||
+              !options.model.start||
+              !options.model.cell ||
+              !options.model.cell.name ||
+              !options.model.cell.color ||
+              !options.model.cell.init ||
+              !options.model.cell.activity ||
+              !options.model.cell.before) throw 'CA.create: Invalid or incomplete CA model!';
+          // construct from model descriptor
+          /*
+            type model = {
+              rows:number,
+              columns:number,
+              neighbors?:number,radius?:number,
+              palette?: color [],
+              parameter? : {},
+              cell: {
+                name: string,
+                state: { .. },
+                before : function,
+                activity : function,
+                after : function,
+                init: function,
+                color: function() -> palette number ,
+                size: number,
+              },
+              data?: 'a [][],
+              start: {}[],
+            } 
+            type color = '#r,#g,#b,#op'|'colorname'
+          */
+          switch (options.model.radius) {
+            case 1: options.model.neighbors=8; break;
+            case 2: options.model.neighbors=24; break;
+            case 3: options.model.neighbors=48; break;
+            case 4: options.model.neighbors=80; break;
+          }
+          // Rtree for domain and cell search
+          var rtree = new RBush();
+          if (options.model.domains) {
+            var domains={};
+            options.model.domains.forEach(function (d) {
+              d.center = {x:parseInt(d.left+d.width/2),y:parseInt(d.top+d.height/2)};
+              domains[d.id]=d;
+              rtree.insert({
+                minX: d.left,
+                minY: d.top,
+                maxX: d.left+d.width-1,
+                maxY: d.top+d.height-1,
+                data: d.data,
+                name: d.id,
+                type: 'domain',
+                width : d.width,
+                height: d.height, 
+                centerX: d.center.x,  
+                centerY: d.center.y,  
+              });
+            });
+          }
+          CAs[id].rtree=rtree;
+          world = new cellauto.world({
+		    width:  options.model.columns,
+		    height: options.model.rows,
+		    cellSize: options.model.cell.size||4,
+            neighbors : options.model.neighbors||8,
+            scheduler : options.model.scheduler||'UPRIGHT',
+            domains   : domains,
+            state     : options.model.cell.state,
+            clock     : options.clock,
+            constants  : options.model.constants,
+            data      : options.model.data,
+            functions : options.model.functions,
+            parameter : options.model.parameter,
+            before    : options.model.before,
+            after     : options.model.after,
+            rtree     : rtree,
+	      });
+          world.palette = options.model.palette;
+          function strict (f) {
+            "use strict";
+            if (options.model.nostrict) return f;
+            var code = f.toString();
+            return eval('('+code+')');
+          }
+          world.registerCellType(options.model.cell.name, {
+            getColor : options.model.cell.color,
+            process  : strict(options.model.cell.activity||options.model.cell.process),
+            reset    : strict(options.model.cell.before||options.model.cell.reset),
+            
+          }, options.model.cell.init);
+          world.initialize(options.model.start);
+          CAs[id].world=world;
+        }
+    } catch (ex) {
+      return Code.error(ex);
+    }
+    function updateGrid(pixels, world) {
+        for (var y=0; y<world.height; y++) {
+            for (var x = 0; x < world.width; x++) {
+                var newColor = world.grid[y][x].getColor(x,y);
+                if (newColor !== world.grid[y][x].oldColor) {
+                    world.grid[y][x].oldColor = newColor;
+                }
+            }
+        }
+    }
+    
+    CAs[id].init = function () {
+      world.reset();
+      updateGrid(pixels, world);
+    }
+    CAs[id].clear = function () {
+      clearGrid(pixels, world);
+    }
+    
+    CAs[id].loop = function () {
+        world.steps=frames;
+        if (options.model.clock) world.clock=options.model.clock(frames);
+        world.step();
+        if(frames % g_stepFrames === 0) {
+          updateGrid(pixels, world);
+        }
+        frames++;
+        CAs[id].info=
+         'Step:'+frames+(options.model.clock?' Clock:'+options.model.clock(frames):'')+
+                        (options.model.day?' Day:'+options.model.day(frames):'');
+    }
+  },
+  
+  ask : function (id,operation, what, val) {
+    var result;
+    var ca = CAs[id];
+    if (!ca) return; 
+    var grid = ca.world.grid;
+    function resolve (o,attr) {
+      if (!o) return;
+      if (typeof attr == 'object') {
+        var next = attr.shift();
+        return attr.length?resolve(o[next],attr):o[next];
+      } else if(attr.indexOf('.')>0) {
+        var parts = attr.split('.'),
+            next = parts.shift();
+        return resolve(o[next],parts);      
+      } else return o[attr];
+    }
+    switch (operation) {
+      case 'map':
+        result=[];
+        for (var i=0;i<grid.length;i++)
+          for(var j=0;j<grid[i].length;j++) {
+            if (typeof what == 'string')  {
+              if (grid[j][i] !== null && (val===undefined?resolve(grid[j][i],what):
+                                                          resolve(grid[j][i],what)==val)) {
+                result.push(grid[j][i]);
+              }
+            } else if (typeof what == 'function')  {
+              if (grid[j][i] !== null && what(grid[j][i])) {
+                result.push(grid[j][i]);
+              }
+            }
+           
+        }
+        break;
+    }
+    return result;
+  },
+  
+  // collect count statistics
+  count : function (id,vars) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    var grid = ca.world.grid;
+    for(var y=0;y<grid.length;y++) 
+      for(var x=0;x<grid[y].length;x++) {
+        var cell = grid[y][x];
+        for(var p in vars) {
+          if (typeof vars[p]=='number') {
+            if (typeof cell[p] == 'number') vars[p] += cell[p];
+            else  if (typeof cell[p] == 'boolean') vars[p] += (cell[p]?1:0);
+            else  if (typeof cell[p] == 'object') vars[p] += (cell[p]?1:0);
+          } else if (typeof vars[p]=='object') {
+            for(var q in vars[p]) {
+              if (typeof cell[p][q] == 'number') vars[p][q] += cell[p][q];
+              else  if (typeof cell[p][q] == 'boolean') vars[p][q] ++;
+              else if (typeof vars[p]=='function') {
+                if (vars[p][q].count == undefined) vars[p][q].count=0;
+                vars[p][q].count += vars[p][q](cell[p][q],x,y);
+              }
+            } 
+          } else if (typeof vars[p]=='function') {
+            if (vars[p].count == undefined) vars[p].count=0;
+            vars[p].count += vars[p](cell[p],x,y);
+          }
+        }
+      }
+    return vars;
+  },
+
+  // get shared world data object
+  data : function (id) {
+    return CAs[id].world.data;
+  }, 
+
+  download : function (id,name) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    var canvasGL = document.getElementById('canvas-'+id);
+    var canvas = ca.canvas2d[0];
+    var ctx = canvas.getContext("2d");
+    var image = {
+        width   : canvas.width,
+        height  : canvas.height
+    }
+    var c = document.createElement('canvas'),
+        t = c.getContext('2d'), w = image.width, h = image.height;
+        c.width = c.style.width = w;
+        c.height = c.style.height = h;
+    t.drawImage( ca.renderer.view, 0, 0 );
+    t.drawImage( canvas,0 ,0);
+    
+    // convert to base64 PNG data 
+    var url = c.toDataURL(); 
+    // var url = plot.chart.toBase64Image();
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name ||'plot.png';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);  
+    }, 0);
+  },
+
+  // get cell state info string
+  info : function (id,x,y) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    var cell =ca.world.grid[y][x];
+    if (CAs[id].options.model.cell.info) {
+      return CAs[id].options.model.cell.info.call(cell,x,y);
+    }
+  }, 
+
+  log : function (id) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    return ca.world.log;    
+  },
+  
+  // get state object of cell
+  state : function (id,x,y) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    var cell = ca.world.grid[y][x];
+    if (CAs[id].options.model.cell.state) {
+      var so={};
+      for(var key in CAs[id].options.model.cell.state)
+        so[key]=cell[key];
+      so.x=cell.x;
+      so.y=cell.y;
+      return so;
+    } else
+      return cell;
+  }, 
+  
+  
+  step : function (id,steps) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    var loop=ca.loop;
+    if (steps) for(var i=0;i<steps;i++) {
+      try {
+        loop();
+      } catch (e) {
+        Code.error(e.toString());
+      }    
+    } else
+      loop();
+  },
+  
+  world : function (id) {
+    var ca = CAs[id];
+    if (!ca) return; 
+    return ca.world
+  },
+  
+  destructor : function (id) {
+    if (CAs[id]) {
+      CAs[id].world=null;
+      delete CAs[id];
+    }
+  },
+  
+  version : '1.2.3HL',
+  
+}
+console.log('CAT '+CA.version+' loaded.');
+};
+BundleModuleCode['plugins/ca/cellauto.js']=function (module,exports,global,process){
+// Version 1.4.1
+// New: headles option (no graphics, computation only)
+
+function CellAutoCell(locX, locY) {
+  this.x = locX;
+  this.y = locY;
+
+  this.delays = [];
+}
+
+// typoef what=string|function(cell)
+
+CellAutoCell.prototype.ask = function (cells, operation , what, val) {
+  if (typeof cells == 'string' && typeof operation == 'number' && typeof what == 'number') switch (cells) {
+    case 'domain':
+      // ask(domain,x,y)
+      var x = operation, y=what;
+      if (this.world.rtree) {
+        var items = this.world.rtree.search({
+          minX:x,
+          minY:y,
+          maxX:x,
+          maxY:y
+        }).filter(function (item) {
+          return item.type=='domain'
+        });
+        return items;
+      }
+      break;
+  }
+  switch (operation) {
+    // ask(neighbours,'dir','UP',this)
+    case 'dir':
+      var root = val;
+      return cells.filter(function (cell) {
+        if (!cell) return;
+        switch (what) {
+          case 'N'  : return (cell.x-root.x)==0 && (cell.y-root.y)<0
+          case 'NW' : return (cell.x-root.x)<0 && (cell.y-root.y)<0
+          case 'W'  : return (cell.x-root.x)<0 && (cell.y-root.y)==0
+          case 'SW' : return (cell.x-root.x)<0 && (cell.y-root.y)>0
+          case 'S'  : return (cell.x-root.x)==0 && (cell.y-root.y)>0
+          case 'SE' : return (cell.x-root.x)>0 && (cell.y-root.y)>0
+          case 'E'  : return (cell.x-root.x)>0 && (cell.y-root.y)==0
+          case 'NE' : return (cell.x-root.x)>0 && (cell.y-root.y)<0
+          case 'UP'   : return (cell.y-root.y)<0
+          case 'LEFT' : return (cell.x-root.x)<0
+          case 'RIGHT': return (cell.x-root.x)>0
+          case 'DOWN' : return (cell.y-root.y)>0
+        }
+      });
+      break;
+    case 'count':
+      // ask(neighbours,'count','state','S1')
+      // ask(neighbours,'count','agent.state','S1')
+      // ask(neighbours,'count',function (cell) -> boolean)
+      return this.countSurroundingCellsWithValue(cells,what, val);
+      break;
+    case 'map':
+      // ask(neighbours,'map','state','S1')
+      // ask(neighbours,'map','agent.state','S1')
+      // ask(neighbours,'map',function (cell) -> boolean)
+      return this.getSurroundingCellsWithValue(cells,what, val);
+      break;
+    case 'average':
+      return this.getSurroundingCellsAverageValue(cells,what);
+      break;
+    case 'match':
+      // what = function(a,b)->boolean|null.
+      // typeof val = {}[]
+      var count=0;
+      for(var i in cells) {
+        var test=val[i];
+        if (what) count += what(cells[i],val[i]);
+        else {
+          var ok=true;
+          for(var key in test) ok &= (test[key]!=cells[i][key]);
+          count += (ok?1:0);
+        }
+      }
+      return count;
+      break;
+  }
+}
+
+CellAutoCell.prototype.process = function(neighbors) {
+  return;
+};
+CellAutoCell.prototype.countSurroundingCellsWithValue = function(neighbors, attr, value) {
+  var surrounding = 0;
+  function resolve (o,attr) {
+    if (!o) return;
+    if (typeof attr == 'object') {
+      var next = attr.shift();
+      return attr.length?resolve(o[next],attr):o[next];
+    } else if(attr.indexOf('.')>0) {
+      var parts = attr.split('.'),
+          next = parts.shift();
+      return resolve(o[next],parts);      
+    } else return o[attr];
+  }
+  if (typeof attr == 'string') for (var i = 0; i < neighbors.length; i++) {
+    if (neighbors[i] !== null && (value===undefined?resolve(neighbors[i],attr):
+                                                   resolve(neighbors[i],attr)==value)) {
+      surrounding++;
+    }
+  } else if (typeof attr == 'function') for (var i = 0; i < neighbors.length; i++) {
+    if (neighbors[i] !== null && attr(neighbors[i])) {
+      surrounding++;
+    }
+  }
+  return surrounding;
+};
+CellAutoCell.prototype.getSurroundingCellsWithValue = function(neighbors, attr, value) {
+  var surrounding = [];
+  function resolve (o,attr) {
+    if (!o) return;
+    if (typeof attr == 'object') {
+      var next = attr.shift();
+      return attr.length?resolve(o[next],attr):o[next];
+    } else if(attr.indexOf('.')>0) {
+      var parts = attr.split('.'),
+          next = parts.shift();
+      return resolve(o[next],parts);      
+    } else return o[attr];
+  }
+  if (typeof attr == 'string') for (var i = 0; i < neighbors.length; i++) {
+    if (neighbors[i] !== null && (value===undefined?resolve(neighbors[i],attr):
+                                                   resolve(neighbors[i],attr)==value)) {
+      surrounding.push(neighbors[i]);
+    }
+  } else if (typeof attr == 'function') for (var i = 0; i < neighbors.length; i++) {
+    if (neighbors[i] !== null && attr(neighbors[i])) {
+      surrounding.push(neighbors[i]);
+    }
+  }
+  return surrounding;
+};
+CellAutoCell.prototype.delay = function(numSteps, fn) {
+  this.delays.push({
+    steps: numSteps,
+    action: fn
+  });
+};
+
+CellAutoCell.prototype.reset = function(neighbors) {
+  return;
+};
+
+CellAutoCell.prototype.getSurroundingCellsAverageValue = function(neighbors, value) {
+  var summed = 0.0;
+  if (typeof attr == 'string') for (var i = 0; i < neighbors.length; i++) {
+    if (neighbors[i] !== null && (neighbors[i][value] || neighbors[i][value] === 0)) {
+      summed += neighbors[i][value];
+    }
+  } else if (typeof attr == 'function') for (var i = 0; i < neighbors.length; i++) {
+    if (neighbors[i] !== null) {
+      summed += attr(neighbors[i]);
+    }
+  }
+  return summed / neighbors.length; //cnt;
+};
+
+/*
+  typeof options = {
+    width:number,
+    height:number,
+    cellSize:number,
+    neighbors:number=4|8|25|49,
+    headless:boolean,
+    hexTiles:boolean,
+    flatTopped:boolean, 
+    scheduler:string,
+    state?: {},
+    data?: 'a [][],
+    parameter? : {}
+  }
+*/
+function CAWorld(options) {
+  "use strict";
+  var self=this;
+  
+  this.width = options.width || 24;
+  this.height = options.height || 24;
+  this.options = options;
+  this.headless = options.headless;
+  this.rtree = options.rtree;
+  this.domains = options.domains;
+  this.log=[];
+  
+  console.log('CA',options);
+  
+  this.wrap = false;
+
+  this.TOPLEFT = {
+    index: 0,
+    x: -1,
+    y: -1
+  };
+  this.TOP = {
+    index: 1,
+    x: 0,
+    y: -1
+  };
+  this.TOPRIGHT = {
+    index: 2,
+    x: 1,
+    y: -1
+  };
+  this.LEFT = {
+    index: 3,
+    x: -1,
+    y: 0
+  };
+  this.RIGHT = {
+    index: 4,
+    x: 1,
+    y: 0
+  };
+  this.BOTTOMLEFT = {
+    index: 5,
+    x: -1,
+    y: 1
+  };
+  this.BOTTOM = {
+    index: 6,
+    x: 0,
+    y: 1
+  };
+  this.BOTTOMRIGHT = {
+    index: 7,
+    x: 1,
+    y: 1
+  };
+
+  this.randomGenerator = Math.random;
+
+  this.scheduler = options.scheduler||'UPRIGHT';
+  
+  /************** COMPUTATIONAL PART *******************/
+  // square tiles by default, eight sides
+  var neighborhood = []; // [null, null, null, null, null, null, null, null];
+  
+  if (this.options.hexTiles) {
+    // six sides
+    neighborhood = [null, null, null, null, null, null];
+  } else {
+    for(var i=0;i<options.neighbors;i++) neighborhood.push(null);
+  }
+  
+  this.reset = function () {
+    var y, x;
+    for (y = 0; y < this.height; y++) {
+      for (x = 0; x < this.width; x++) {
+        this.grid[y][x].init();
+      }
+    }  
+  } 
+  function shuffleArray(array) {
+      for (var i = array.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var temp = array[i];
+          array[i] = array[j];
+          array[j] = temp;
+      }
+      return array;
+  }  
+  this.step = function() {
+    var y, x, cells;
+    if (options.before) options.before(self);
+    switch (this.scheduler) {
+      case 'UPRIGHT':
+        // before
+        for (y = 0; y < this.height; y++) {
+          for (x = 0; x < this.width; x++) {
+            this.grid[y][x].reset();
+          }
+        }
+        // activity
+        // bottom up, left to right processing
+        for (y = this.height - 1; y >= 0; y--) {
+          for (x = this.width - 1; x >= 0; x--) {
+            this.fillNeighbors(neighborhood, x, y);
+            var cell = this.grid[y][x];
+            cell.process(neighborhood, x, y);
+
+            // perform any delays
+            for (var i = 0; i < cell.delays.length; i++) {
+              cell.delays[i].steps--;
+              if (cell.delays[i].steps <= 0) {
+                // perform action and remove delay
+                cell.delays[i].action(cell);
+                cell.delays.splice(i, 1);
+                i--;
+              }
+            }
+          }
+        }
+        break;
+      case 'DOWNLEFT':
+        // before
+        for (y = 0; y < this.height; y++) {
+          for (x = 0; x < this.width; x++) {
+            this.grid[y][x].reset();
+          }
+        }
+
+        // top down, right to left processing
+        for (y = 0; y < this.height; y++) {
+          for (x = 0; x < this.width; x++) {
+            this.fillNeighbors(neighborhood, x, y);
+            var cell = this.grid[y][x];
+            cell.process(neighborhood, x, y);
+
+            // perform any delays
+            for (var i = 0; i < cell.delays.length; i++) {
+              cell.delays[i].steps--;
+              if (cell.delays[i].steps <= 0) {
+                // perform action and remove delay
+                cell.delays[i].action(cell);
+                cell.delays.splice(i, 1);
+                i--;
+              }
+            }
+          }
+        }
+        break;
+      case 'UPRIGHT1':
+        // activity
+        // bottom up, left to right processing
+        for (y = this.height - 1; y >= 0; y--) {
+          for (x = this.width - 1; x >= 0; x--) {
+            this.fillNeighbors(neighborhood, x, y);
+            var cell = this.grid[y][x];
+            cell.reset();
+            cell.process(neighborhood, x, y);
+
+            // perform any delays
+            for (var i = 0; i < cell.delays.length; i++) {
+              cell.delays[i].steps--;
+              if (cell.delays[i].steps <= 0) {
+                // perform action and remove delay
+                cell.delays[i].action(cell);
+                cell.delays.splice(i, 1);
+                i--;
+              }
+            }
+          }
+        }
+        break;
+      case 'DOWNLEFT1':
+        // top down, right to left processing
+        for (y = 0; y < this.height; y++) {
+          for (x = 0; x < this.width; x++) {
+            this.fillNeighbors(neighborhood, x, y);
+            var cell = this.grid[y][x];
+            cell.reset();
+            cell.process(neighborhood, x, y);
+
+            // perform any delays
+            for (var i = 0; i < cell.delays.length; i++) {
+              cell.delays[i].steps--;
+              if (cell.delays[i].steps <= 0) {
+                // perform action and remove delay
+                cell.delays[i].action(cell);
+                cell.delays.splice(i, 1);
+                i--;
+              }
+            }
+          }
+        }
+        break;
+      case 'RANDOM0':
+        for (y = 0; y < this.height; y++) {
+          for (x = 0; x < this.width; x++) {
+            this.grid[y][x].reset();
+          }
+        }
+      case 'RANDOM':
+        if (!this.cellPositions)  {
+          this.cellPositions=[];
+          for (y = 0; y < this.height; y++) {
+            for (x = 0; x < this.width; x++) {
+              this.cellPositions.push({x:x,y:y});
+            }
+          }
+        }
+        cells=shuffleArray(this.cellPositions.slice());
+        for(i=0;i<cells.length;i++) {
+          x=cells[i].x,y=cells[i].y;
+          var cell = this.grid[y][x];
+          if (this.scheduler=='RANDOM') cell.reset();
+          this.fillNeighbors(neighborhood, x, y);
+          cell.process(neighborhood, x, y);          
+        }
+        break;
+    }
+  };
+
+  //var NEIGHBORLOCS = [{x:-1, y:-1}, {x:0, y:-1}, {x:1, y:-1}, {x:-1, y:0}, {x:1, y:0},{x:-1, y:1}, {x:0, y:1}, {x:1, y:1}];
+  // square tiles by default
+  var NEIGHBORLOCS;
+  function moore(r) {
+    var deltas=[];
+    for(var y=-r;y<=r;y++) for(var x=-r;x<=r;x++) {
+      if (x!=0 || y!=0)
+        deltas.push((function (x,y) {
+          return {diffX: function () { return x },   diffY: function () { return y } }
+        })(x,y));
+    }
+    return deltas;    
+  }
+
+  function xy(x,y) { return {diffX: function () { return x },   diffY: function () { return y } } };
+
+  function neumann(r) {
+    var deltas=[];
+    for(var i=1;i<=r;i++) {
+      deltas.push(xy(0,-i));
+      deltas.push(xy(-i,0));
+      deltas.push(xy(i,0));
+      deltas.push(xy(0,i));
+    }
+    return deltas;
+  }
+  switch (this.options.neighbors) {
+    case 4:
+      // von-Neumann neighborhood
+      NEIGHBORLOCS = neumann(1);
+      break;
+    case 8:
+      // moore neighborhood
+      NEIGHBORLOCS = moore(1);
+      break;
+    case 24:
+      // 2*moore neighborhood
+      NEIGHBORLOCS = moore(2);
+      break;
+    case 48:
+      // 3*moore neighborhood
+      NEIGHBORLOCS = moore(3);
+      break;
+    case 80:
+      // 4*moore neighborhood
+      NEIGHBORLOCS = moore(4);
+      break;
+    default:
+      throw 'CA: unsupported neighborhood';
+  }
+  if (this.options.hexTiles) {
+    if (this.options.flatTopped) {
+      // flat topped hex map,  function requires column to be passed
+      NEIGHBORLOCS = [{
+          diffX: function() {
+            return -1;
+          },
+          diffY: function(x) {
+            return x % 2 ? -1 : 0;
+          }
+        }, // top left
+        {
+          diffX: function() {
+            return 0;
+          },
+          diffY: function() {
+            return -1;
+          }
+        }, // top
+        {
+          diffX: function() {
+            return 1;
+          },
+          diffY: function(x) {
+            return x % 2 ? -1 : 0;
+          }
+        }, // top right
+        {
+          diffX: function() {
+            return 1;
+          },
+          diffY: function(x) {
+            return x % 2 ? 0 : 1;
+          }
+        }, // bottom right
+        {
+          diffX: function() {
+            return 0;
+          },
+          diffY: function() {
+            return 1;
+          }
+        }, // bottom
+        {
+          diffX: function() {
+            return -1;
+          },
+          diffY: function(x) {
+            return x % 2 ? 0 : 1;
+          }
+        } // bottom left
+      ];
+    } else {
+      // pointy topped hex map, function requires row to be passed
+      NEIGHBORLOCS = [{
+          diffX: function(x, y) {
+            return y % 2 ? 0 : -1;
+          },
+          diffY: function() {
+            return -1;
+          }
+        }, // top left
+        {
+          diffX: function(x, y) {
+            return y % 2 ? 1 : 0;
+          },
+          diffY: function() {
+            return -1;
+          }
+        }, // top right
+        {
+          diffX: function() {
+            return -1;
+          },
+          diffY: function() {
+            return 0;
+          }
+        }, // left
+        {
+          diffX: function() {
+            return 1;
+          },
+          diffY: function() {
+            return 0;
+          }
+        }, // right
+        {
+          diffX: function(x, y) {
+            return y % 2 ? 0 : -1;
+          },
+          diffY: function() {
+            return 1;
+          }
+        }, // bottom left
+        {
+          diffX: function(x, y) {
+            return y % 2 ? 1 : 0;
+          },
+          diffY: function() {
+            return 1;
+          }
+        } // bottom right
+      ];
+    }
+
+  }
+  console.log('CA NEIGHBORLOCS',NEIGHBORLOCS);
+  this.fillNeighbors = function(neighbors, x, y) {
+    for (var i = 0; i < NEIGHBORLOCS.length; i++) {
+      var neighborX = x + NEIGHBORLOCS[i].diffX(x, y);
+      var neighborY = y + NEIGHBORLOCS[i].diffY(x, y);
+      if (this.wrap) {
+        // TODO: hex map support for wrapping
+        neighborX = (neighborX + this.width) % this.width;
+        neighborY = (neighborY + this.height) % this.height;
+      }
+      if (neighborX < 0 || neighborY < 0 || neighborX >= this.width || neighborY >= this.height) {
+        neighbors[i] = null;
+      } else {
+        neighbors[i] = this.grid[neighborY][neighborX];
+      }
+    }
+  };
+
+  this.initialize = function(arrayTypeDist) {
+
+    // sort the cell types by distribution
+    arrayTypeDist.sort(function(a, b) {
+      return a.distribution > b.distribution ? 1 : -1;
+    });
+
+    var totalDist = 0;
+    // add all distributions together
+    for (var i = 0; i < arrayTypeDist.length; i++) {
+      totalDist += arrayTypeDist[i].distribution;
+      arrayTypeDist[i].distribution = totalDist;
+    }
+
+    this.grid = [];
+    for (var y = 0; y < this.height; y++) {
+      this.grid[y] = [];
+      for (var x = 0; x < this.width; x++) {
+        var random = this.randomGenerator() * 100;
+
+        for (i = 0; i < arrayTypeDist.length; i++) {
+          if (random <= arrayTypeDist[i].distribution) {
+            this.grid[y][x] = new this.cellTypes[arrayTypeDist[i].name](x, y);
+            Object.preventExtensions(this.grid[y][x]);
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  this.cellTypes = {};
+  // Warning: The cell cannot be extended after initialization. The cellOptions/option.state parameter is mandatory!
+  this.registerCellType = function(name, cellOptions, init) {
+    this.cellTypes[name] = function(x, y) {
+      var that=this;
+      CellAutoCell.call(this, x, y);
+
+      //if (init) {
+      //  init.call(this, x, y);
+      //}
+      if (options.state) for(var key in options.state) this[key]=options.state[key];
+      if (cellOptions.state) for(var key in cellOptions.state) this[key]=cellOptions.state[key];
+      if (options.parameter) for(var key in options.parameter) this[key]=options.parameter[key];
+      if (init) this.init = function () { 
+        init.call(this,x,y) 
+      };
+      else this.init = function () { };
+      if (options.constants)  this.constants=options.constants;
+      if (options.data)       this.data=options.data;
+      if (options.functions)  this.functions=options.functions;
+      if (options.parameter)  this.parameter=options.parameter;
+      this.log = function () {
+        var args=arguments,
+            msg=Object.keys(args).map(function (index) { return args[index] });
+        if (msg.length==1) {
+          msg=msg[0]; 
+          msg=(msg==undefined?'undefined':msg);
+          if (typeof msg == 'object') msg=inspect(msg);
+        } else {
+          msg=msg.map(function (arg) {
+            if (typeof arg=='object') return arg==undefined?'undefined':inspect(arg);
+            else return arg;
+          }).join(' , ');
+        }
+        that.world.log.push({x:that.x,y:that.y,msg:msg});
+      }
+      if (cellOptions) {
+        for (var key in cellOptions) {
+          if (typeof cellOptions[key] !== 'function') {
+            // properties get instance
+            if (typeof cellOptions[key] === 'object') {
+              // objects must be cloned
+              this[key] = JSON.parse(JSON.stringify(cellOptions[key]));
+            } else {
+              // primitive
+              this[key] = cellOptions[key];
+            }
+          }
+        }
+      }
+    };
+    this.cellTypes[name].prototype = Object.create(CellAutoCell.prototype);
+    this.cellTypes[name].prototype.constructor = this.cellTypes[name];
+    this.cellTypes[name].prototype.cellType = name;
+    this.cellTypes[name].prototype.world = self;
+    if (cellOptions) {
+      for (var key in cellOptions) {
+        if (typeof cellOptions[key] === 'function') {
+          // functions get prototype
+          this.cellTypes[name].prototype[key] = cellOptions[key];
+        }
+      }
+    }
+  };
+
+  // apply options
+  if (options) {
+    for (var key in options) {
+      this[key] = options[key];
+    }
+  }
+
+}
+
+CAWorld.prototype.initializeFromGrid = function(values, initGrid) {
+
+  this.grid = [];
+  for (var y = 0; y < this.height; y++) {
+    this.grid[y] = [];
+    for (var x = 0; x < this.width; x++) {
+      for (var i = 0; i < values.length; i++) {
+        if (values[i].gridValue === initGrid[y][x]) {
+          this.grid[y][x] = new this.cellTypes[values[i].name](x, y);
+          break;
+        }
+      }
+    }
+  }
+
+};
+
+CAWorld.prototype.createGridFromValues = function(values, defaultValue) {
+  var newGrid = [];
+
+  for (var y = 0; y < this.height; y++) {
+    newGrid[y] = [];
+    for (var x = 0; x < this.width; x++) {
+      newGrid[y][x] = defaultValue;
+      var cell = this.grid[y][x];
+      for (var i = 0; i < values.length; i++) {
+        if (cell.cellType == values[i].cellType && cell[values[i].hasProperty]) {
+          newGrid[y][x] = values[i].value;
+        }
+      }
+    }
+  }
+
+  return newGrid;
+};
+
+if (typeof module != 'undefined')
+module.exports = {
+  cell: CellAutoCell,
+  world: CAWorld,
+  version : '1.4.1',
+}
+};
+BundleModuleCode['plugins/rtree/rtree']=function (module,exports,global,process){
+'use strict';
+var rectangle = Require('rtree/rectangle');
+var geojson   = Require('rtree/geojson');
+
+
+function RTree(width) {
+  if (!(this instanceof RTree)) {
+    return new RTree(width);
+  }
+  // Variables to control tree-dimensions
+  var minWidth = 3;  // Minimum width of any node before a merge
+  var maxWidth = 6;  // Maximum width of any node before a split
+  if (!isNaN(width)) {
+    minWidth = Math.floor(width / 2.0);
+    maxWidth = width;
+  }
+  // Start with an empty root-tree
+  var rootTree = {x: 0, y: 0, w: 0, h: 0, id: 'root', nodes: [] };
+  this.root = rootTree;
+
+
+  // This is my special addition to the world of r-trees
+  // every other (simple) method I found produced crap trees
+  // this skews insertions to prefering squarer and emptier nodes
+  var flatten = function (tree) {
+    var todo = tree.slice();
+    var done = [];
+    var current;
+    while (todo.length) {
+      current = todo.pop();
+      if (current.nodes) {
+        todo = todo.concat(current.nodes);
+      } else if (current.leaf) {
+        done.push(current);
+      }
+    }
+    return done;
+  };
+  /* find the best specific node(s) for object to be deleted from
+   * [ leaf node parent ] = removeSubtree(rectangle, object, root)
+   * @private
+   */
+  var removeSubtree = function (rect, obj, root) {
+    var hitStack = []; // Contains the elements that overlap
+    var countStack = []; // Contains the elements that overlap
+    var retArray = [];
+    var currentDepth = 1;
+    var tree, i, ltree;
+    if (!rect || !rectangle.overlapRectangle(rect, root)) {
+      return retArray;
+    }
+    var retObj = {x: rect.x, y: rect.y, w: rect.w, h: rect.h, target: obj};
+
+    countStack.push(root.nodes.length);
+    hitStack.push(root);
+    while (hitStack.length > 0) {
+      tree = hitStack.pop();
+      i = countStack.pop() - 1;
+      if ('target' in retObj) { // will this ever be false?
+        while (i >= 0) {
+          ltree = tree.nodes[i];
+          if (rectangle.overlapRectangle(retObj, ltree)) {
+            if ((retObj.target && 'leaf' in ltree && ltree.leaf === retObj.target) || (!retObj.target && ('leaf' in ltree || rectangle.containsRectangle(ltree, retObj)))) {
+              // A Match !!
+            // Yup we found a match...
+            // we can cancel search and start walking up the list
+              if ('nodes' in ltree) {// If we are deleting a node not a leaf...
+                retArray = flatten(tree.nodes.splice(i, 1));
+              } else {
+                retArray = tree.nodes.splice(i, 1);
+              }
+              // Resize MBR down...
+              rectangle.makeMBR(tree.nodes, tree);
+              delete retObj.target;
+              //if (tree.nodes.length < minWidth) { // Underflow
+              //  retObj.nodes = searchSubtree(tree, true, [], tree);
+              //}
+              break;
+            } else if ('nodes' in ltree) { // Not a Leaf
+              currentDepth++;
+              countStack.push(i);
+              hitStack.push(tree);
+              tree = ltree;
+              i = ltree.nodes.length;
+            }
+          }
+          i--;
+        }
+
+      } else if ('nodes' in retObj) { // We are unsplitting
+
+        tree.nodes.splice(i + 1, 1); // Remove unsplit node
+        if (tree.nodes.length > 0) {
+          rectangle.makeMBR(tree.nodes, tree);
+        }
+        for (var t = 0;t < retObj.nodes.length;t++) {
+          insertSubtree(retObj.nodes[t], tree);
+        }
+        retObj.nodes = [];
+        if (hitStack.length === 0 && tree.nodes.length <= 1) { // Underflow..on root!
+          retObj.nodes = searchSubtree(tree, true, retObj.nodes, tree);
+          tree.nodes = [];
+          hitStack.push(tree);
+          countStack.push(1);
+        } else if (hitStack.length > 0 && tree.nodes.length < minWidth) { // Underflow..AGAIN!
+          retObj.nodes = searchSubtree(tree, true, retObj.nodes, tree);
+          tree.nodes = [];
+        } else {
+          delete retObj.nodes; // Just start resizing
+        }
+      } else { // we are just resizing
+        rectangle.makeMBR(tree.nodes, tree);
+      }
+      currentDepth -= 1;
+    }
+    return retArray;
+  };
+
+  /* choose the best damn node for rectangle to be inserted into
+   * [ leaf node parent ] = chooseLeafSubtree(rectangle, root to start search at)
+   * @private
+   */
+  var chooseLeafSubtree = function (rect, root) {
+    var bestChoiceIndex = -1;
+    var bestChoiceStack = [];
+    var bestChoiceArea;
+    var first = true;
+    bestChoiceStack.push(root);
+    var nodes = root.nodes;
+
+    while (first || bestChoiceIndex !== -1) {
+      if (first) {
+        first = false;
+      } else {
+        bestChoiceStack.push(nodes[bestChoiceIndex]);
+        nodes = nodes[bestChoiceIndex].nodes;
+        bestChoiceIndex = -1;
+      }
+
+      for (var i = nodes.length - 1; i >= 0; i--) {
+        var ltree = nodes[i];
+        if ('leaf' in ltree) {
+          // Bail out of everything and start inserting
+          bestChoiceIndex = -1;
+          break;
+        }
+        // Area of new enlarged rectangle
+        var oldLRatio = rectangle.squarifiedRatio(ltree.w, ltree.h, ltree.nodes.length + 1);
+
+        // Enlarge rectangle to fit new rectangle
+        var nw = Math.max(ltree.x + ltree.w, rect.x + rect.w) - Math.min(ltree.x, rect.x);
+        var nh = Math.max(ltree.y + ltree.h, rect.y + rect.h) - Math.min(ltree.y, rect.y);
+
+        // Area of new enlarged rectangle
+        var lratio = rectangle.squarifiedRatio(nw, nh, ltree.nodes.length + 2);
+
+        if (bestChoiceIndex < 0 || Math.abs(lratio - oldLRatio) < bestChoiceArea) {
+          bestChoiceArea = Math.abs(lratio - oldLRatio);
+          bestChoiceIndex = i;
+        }
+      }
+    }
+
+    return bestChoiceStack;
+  };
+
+  /* split a set of nodes into two roughly equally-filled nodes
+   * [ an array of two new arrays of nodes ] = linearSplit(array of nodes)
+   * @private
+   */
+  var linearSplit = function (nodes) {
+    var n = pickLinear(nodes);
+    while (nodes.length > 0) {
+      pickNext(nodes, n[0], n[1]);
+    }
+    return n;
+  };
+
+  /* insert the best source rectangle into the best fitting parent node: a or b
+   * [] = pickNext(array of source nodes, target node array a, target node array b)
+   * @private
+   */
+  var pickNext = function (nodes, a, b) {
+  // Area of new enlarged rectangle
+    var areaA = rectangle.squarifiedRatio(a.w, a.h, a.nodes.length + 1);
+    var areaB = rectangle.squarifiedRatio(b.w, b.h, b.nodes.length + 1);
+    var highAreaDelta;
+    var highAreaNode;
+    var lowestGrowthGroup;
+
+    for (var i = nodes.length - 1; i >= 0;i--) {
+      var l = nodes[i];
+      var newAreaA = {};
+      newAreaA.x = Math.min(a.x, l.x);
+      newAreaA.y = Math.min(a.y, l.y);
+      newAreaA.w = Math.max(a.x + a.w, l.x + l.w) - newAreaA.x;
+      newAreaA.h = Math.max(a.y + a.h, l.y + l.h) - newAreaA.y;
+      var changeNewAreaA = Math.abs(rectangle.squarifiedRatio(newAreaA.w, newAreaA.h, a.nodes.length + 2) - areaA);
+
+      var newAreaB = {};
+      newAreaB.x = Math.min(b.x, l.x);
+      newAreaB.y = Math.min(b.y, l.y);
+      newAreaB.w = Math.max(b.x + b.w, l.x + l.w) - newAreaB.x;
+      newAreaB.h = Math.max(b.y + b.h, l.y + l.h) - newAreaB.y;
+      var changeNewAreaB = Math.abs(rectangle.squarifiedRatio(newAreaB.w, newAreaB.h, b.nodes.length + 2) - areaB);
+
+      if (!highAreaNode || !highAreaDelta || Math.abs(changeNewAreaB - changeNewAreaA) < highAreaDelta) {
+        highAreaNode = i;
+        highAreaDelta = Math.abs(changeNewAreaB - changeNewAreaA);
+        lowestGrowthGroup = changeNewAreaB < changeNewAreaA ? b : a;
+      }
+    }
+    var tempNode = nodes.splice(highAreaNode, 1)[0];
+    if (a.nodes.length + nodes.length + 1 <= minWidth) {
+      a.nodes.push(tempNode);
+      rectangle.expandRectangle(a, tempNode);
+    }  else if (b.nodes.length + nodes.length + 1 <= minWidth) {
+      b.nodes.push(tempNode);
+      rectangle.expandRectangle(b, tempNode);
+    }
+    else {
+      lowestGrowthGroup.nodes.push(tempNode);
+      rectangle.expandRectangle(lowestGrowthGroup, tempNode);
+    }
+  };
+
+  /* pick the 'best' two starter nodes to use as seeds using the 'linear' criteria
+   * [ an array of two new arrays of nodes ] = pickLinear(array of source nodes)
+   * @private
+   */
+  var pickLinear = function (nodes) {
+    var lowestHighX = nodes.length - 1;
+    var highestLowX = 0;
+    var lowestHighY = nodes.length - 1;
+    var highestLowY = 0;
+    var t1, t2;
+
+    for (var i = nodes.length - 2; i >= 0;i--) {
+      var l = nodes[i];
+      if (l.x > nodes[highestLowX].x) {
+        highestLowX = i;
+      } else if (l.x + l.w < nodes[lowestHighX].x + nodes[lowestHighX].w) {
+        lowestHighX = i;
+      }
+      if (l.y > nodes[highestLowY].y) {
+        highestLowY = i;
+      } else if (l.y + l.h < nodes[lowestHighY].y + nodes[lowestHighY].h) {
+        lowestHighY = i;
+      }
+    }
+    var dx = Math.abs((nodes[lowestHighX].x + nodes[lowestHighX].w) - nodes[highestLowX].x);
+    var dy = Math.abs((nodes[lowestHighY].y + nodes[lowestHighY].h) - nodes[highestLowY].y);
+    if (dx > dy)  {
+      if (lowestHighX > highestLowX)  {
+        t1 = nodes.splice(lowestHighX, 1)[0];
+        t2 = nodes.splice(highestLowX, 1)[0];
+      }  else {
+        t2 = nodes.splice(highestLowX, 1)[0];
+        t1 = nodes.splice(lowestHighX, 1)[0];
+      }
+    }  else {
+      if (lowestHighY > highestLowY)  {
+        t1 = nodes.splice(lowestHighY, 1)[0];
+        t2 = nodes.splice(highestLowY, 1)[0];
+      }  else {
+        t2 = nodes.splice(highestLowY, 1)[0];
+        t1 = nodes.splice(lowestHighY, 1)[0];
+      }
+    }
+    return [
+      {x: t1.x, y: t1.y, w: t1.w, h: t1.h, nodes: [t1]},
+      {x: t2.x, y: t2.y, w: t2.w, h: t2.h, nodes: [t2]}
+    ];
+  };
+
+  var attachData = function (node, moreTree) {
+    node.nodes = moreTree.nodes;
+    node.x = moreTree.x;
+    node.y = moreTree.y;
+    node.w = moreTree.w;
+    node.h = moreTree.h;
+    return node;
+  };
+
+  /* non-recursive internal search function
+  * [ nodes | objects ] = searchSubtree(rectangle, [return node data], [array to fill], root to begin search at)
+   * @private
+   */
+  var searchSubtree = function (rect, returnNode, returnArray, root) {
+    var hitStack = []; // Contains the elements that overlap
+
+    if (!rectangle.overlapRectangle(rect, root)) {
+      return returnArray;
+    }
+
+
+    hitStack.push(root.nodes);
+
+    while (hitStack.length > 0) {
+      var nodes = hitStack.pop();
+
+      for (var i = nodes.length - 1; i >= 0; i--) {
+        var ltree = nodes[i];
+        if (rectangle.overlapRectangle(rect, ltree)) {
+          if ('nodes' in ltree) { // Not a Leaf
+            hitStack.push(ltree.nodes);
+          } else if ('leaf' in ltree) { // A Leaf !!
+            if (!returnNode) {
+              returnArray.push(ltree.leaf);
+            } else {
+              returnArray.push(ltree);
+            }
+          }
+        }
+      }
+    }
+
+    return returnArray;
+  };
+
+  /* non-recursive internal insert function
+   * [] = insertSubtree(rectangle, object to insert, root to begin insertion at)
+   * @private
+   */
+  var insertSubtree = function (node, root) {
+    var bc; // Best Current node
+    // Initial insertion is special because we resize the Tree and we don't
+    // care about any overflow (seriously, how can the first object overflow?)
+    if (root.nodes.length === 0) {
+      root.x = node.x;
+      root.y = node.y;
+      root.w = node.w;
+      root.h = node.h;
+      root.nodes.push(node);
+      return;
+    }
+
+    // Find the best fitting leaf node
+    // chooseLeaf returns an array of all tree levels (including root)
+    // that were traversed while trying to find the leaf
+    var treeStack = chooseLeafSubtree(node, root);
+    var retObj = node;//{x:rect.x,y:rect.y,w:rect.w,h:rect.h, leaf:obj};
+    var pbc;
+    // Walk back up the tree resizing and inserting as needed
+    while (treeStack.length > 0) {
+      //handle the case of an empty node (from a split)
+      if (bc && 'nodes' in bc && bc.nodes.length === 0) {
+        pbc = bc; // Past bc
+        bc = treeStack.pop();
+        for (var t = 0;t < bc.nodes.length;t++) {
+          if (bc.nodes[t] === pbc || bc.nodes[t].nodes.length === 0) {
+            bc.nodes.splice(t, 1);
+            break;
+          }
+        }
+      } else {
+        bc = treeStack.pop();
+      }
+
+      // If there is data attached to this retObj
+      if ('leaf' in retObj || 'nodes' in retObj || Array.isArray(retObj)) {
+        // Do Insert
+        if (Array.isArray(retObj)) {
+          for (var ai = 0; ai < retObj.length; ai++) {
+            rectangle.expandRectangle(bc, retObj[ai]);
+          }
+          bc.nodes = bc.nodes.concat(retObj);
+        } else {
+          rectangle.expandRectangle(bc, retObj);
+          bc.nodes.push(retObj); // Do Insert
+        }
+
+        if (bc.nodes.length <= maxWidth)  { // Start Resizeing Up the Tree
+          retObj = {x: bc.x, y: bc.y, w: bc.w, h: bc.h};
+        }  else { // Otherwise Split this Node
+          // linearSplit() returns an array containing two new nodes
+          // formed from the split of the previous node's overflow
+          var a = linearSplit(bc.nodes);
+          retObj = a;//[1];
+
+          if (treeStack.length < 1)  { // If are splitting the root..
+            bc.nodes.push(a[0]);
+            treeStack.push(bc);  // Reconsider the root element
+            retObj = a[1];
+          } /*else {
+            delete bc;
+          }*/
+        }
+      } else { // Otherwise Do Resize
+        //Just keep applying the new bounding rectangle to the parents..
+        rectangle.expandRectangle(bc, retObj);
+        retObj = {x: bc.x, y: bc.y, w: bc.w, h: bc.h};
+      }
+    }
+  };
+
+  this.insertSubtree = insertSubtree;
+  /* quick 'n' dirty function for plugins or manually drawing the tree
+   * [ tree ] = RTree.getTree(): returns the raw tree data. useful for adding
+   * @public
+   * !! DEPRECATED !!
+   */
+  this.getTree = function () {
+    return rootTree;
+  };
+
+  /* quick 'n' dirty function for plugins or manually loading the tree
+   * [ tree ] = RTree.setTree(sub-tree, where to attach): returns the raw tree data. useful for adding
+   * @public
+   * !! DEPRECATED !!
+   */
+  this.setTree = function (newTree, where) {
+    if (!where) {
+      where = rootTree;
+    }
+    return attachData(where, newTree);
+  };
+
+  /* non-recursive search function
+  * [ nodes | objects ] = RTree.search(rectangle, [return node data], [array to fill])
+   * @public
+   */
+  this.search = function (rect, returnNode, returnArray) {
+    returnArray = returnArray || [];
+    return searchSubtree(rect, returnNode, returnArray, rootTree);
+  };
+
+
+  var removeArea = function (rect) {
+    var numberDeleted = 1,
+    retArray = [],
+    deleted;
+    while (numberDeleted > 0) {
+      deleted = removeSubtree(rect, false, rootTree);
+      numberDeleted = deleted.length;
+      retArray = retArray.concat(deleted);
+    }
+    return retArray;
+  };
+
+  var removeObj = function (rect, obj) {
+    var retArray = removeSubtree(rect, obj, rootTree);
+    return retArray;
+  };
+    /* non-recursive delete function
+   * [deleted object] = RTree.remove(rectangle, [object to delete])
+   */
+  this.remove = function (rect, obj) {
+    if (!obj || typeof obj === 'function') {
+      return removeArea(rect, obj);
+    } else {
+      return removeObj(rect, obj);
+    }
+  };
+
+  /* non-recursive insert function
+   * [] = RTree.insert(rectangle, object to insert)
+   */
+  this.insert = function (rect, obj) {
+    var retArray = insertSubtree({x: rect.x, y: rect.y, w: rect.w, h: rect.h, leaf: obj}, rootTree);
+    return retArray;
+  };
+}
+RTree.prototype.toJSON = function (printing) {
+  return JSON.stringify(this.root, false, printing);
+};
+
+RTree.fromJSON = function (json) {
+  var rt = new RTree();
+  rt.setTree(JSON.parse(json));
+  return rt;
+};
+
+RTree.prototype.bbox    = geojson.bbox;
+RTree.prototype.geoJSON = geojson.geoJSON;
+RTree.Rectangle         = rectangle;
+
+module.exports = RTree;
+
+
+/**
+ * Polyfill for the Array.isArray function
+ * todo: Test on IE7 and IE8
+ * Taken from https://github.com/geraintluff/tv4/issues/20
+ */
+if (typeof Array.isArray !== 'function') {
+  Array.isArray = function (a) {
+    return typeof a === 'object' && {}.toString.call(a) === '[object Array]';
+  };
+}
+};
+BundleModuleCode['rtree/rectangle']=function (module,exports,global,process){
+'use strict';
+function Rectangle(x, y, w, h) { // new Rectangle(bounds) or new Rectangle(x, y, w, h)
+  if (!(this instanceof Rectangle)) {
+    return new Rectangle(x, y, w, h);
+  }
+  var x2, y2, p;
+
+  if (x.x) {
+    w = x.w;
+    h = x.h;
+    y = x.y;
+    if (x.w !== 0 && !x.w && x.x2) {
+      w = x.x2 - x.x;
+      h = x.y2 - x.y;
+    }
+    else {
+      w = x.w;
+      h = x.h;
+    }
+    x = x.x;
+    // For extra fastitude
+    x2 = x + w;
+    y2 = y + h;
+    p = (h + w) ? false : true;
+  }
+  else {
+    // For extra fastitude
+    x2 = x + w;
+    y2 = y + h;
+    p = (h + w) ? false : true;
+  }
+
+  this.x1 = this.x = function () {
+    return x;
+  };
+  this.y1 = this.y = function () {
+    return y;
+  };
+  this.x2 = function () {
+    return x2;
+  };
+  this.y2 = function () {
+    return y2;
+  };
+  this.w = function () {
+    return w;
+  };
+  this.h = function () {
+    return h;
+  };
+  this.p = function () {
+    return p;
+  };
+
+  this.overlap = function (a) {
+    if (p || a.p()) {
+      return x <= a.x2() && x2 >= a.x() && y <= a.y2() && y2 >= a.y();
+    }
+    return x < a.x2() && x2 > a.x() && y < a.y2() && y2 > a.y();
+  };
+
+  this.expand = function (a) {
+    var nx, ny;
+    var ax = a.x();
+    var ay = a.y();
+    var ax2 = a.x2();
+    var ay2 = a.y2();
+    if (x > ax) {
+      nx = ax;
+    }
+    else {
+      nx = x;
+    }
+    if (y > ay) {
+      ny = ay;
+    }
+    else {
+      ny = y;
+    }
+    if (x2 > ax2) {
+      w = x2 - nx;
+    }
+    else {
+      w = ax2 - nx;
+    }
+    if (y2 > ay2) {
+      h = y2 - ny;
+    }
+    else {
+      h = ay2 - ny;
+    }
+    x = nx;
+    y = ny;
+    return this;
+  };
+
+  //End of RTree.Rectangle
+}
+
+
+/* returns true if rectangle 1 overlaps rectangle 2
+ * [ boolean ] = overlapRectangle(rectangle a, rectangle b)
+ * @static function
+ */
+Rectangle.overlapRectangle = function (a, b) {
+  //if(!((a.h||a.w)&&(b.h||b.w))){ not faster resist the urge!
+  if ((a.h === 0 && a.w === 0) || (b.h === 0 && b.w === 0)) {
+    return a.x <= (b.x + b.w) && (a.x + a.w) >= b.x && a.y <= (b.y + b.h) && (a.y + a.h) >= b.y;
+  }
+  else {
+    return a.x < (b.x + b.w) && (a.x + a.w) > b.x && a.y < (b.y + b.h) && (a.y + a.h) > b.y;
+  }
+};
+
+/* returns true if rectangle a is contained in rectangle b
+ * [ boolean ] = containsRectangle(rectangle a, rectangle b)
+ * @static function
+ */
+Rectangle.containsRectangle = function (a, b) {
+  return (a.x + a.w) <= (b.x + b.w) && a.x >= b.x && (a.y + a.h) <= (b.y + b.h) && a.y >= b.y;
+};
+
+/* expands rectangle A to include rectangle B, rectangle B is untouched
+ * [ rectangle a ] = expandRectangle(rectangle a, rectangle b)
+ * @static function
+ */
+Rectangle.expandRectangle = function (a, b) {
+  var nx, ny;
+  var axw = a.x + a.w;
+  var bxw = b.x + b.w;
+  var ayh = a.y + a.h;
+  var byh = b.y + b.h;
+  if (a.x > b.x) {
+    nx = b.x;
+  }
+  else {
+    nx = a.x;
+  }
+  if (a.y > b.y) {
+    ny = b.y;
+  }
+  else {
+    ny = a.y;
+  }
+  if (axw > bxw) {
+    a.w = axw - nx;
+  }
+  else {
+    a.w = bxw - nx;
+  }
+  if (ayh > byh) {
+    a.h = ayh - ny;
+  }
+  else {
+    a.h = byh - ny;
+  }
+  a.x = nx;
+  a.y = ny;
+  return a;
+};
+
+/* generates a minimally bounding rectangle for all rectangles in
+ * array 'nodes'. If rect is set, it is modified into the MBR. Otherwise,
+ * a new rectangle is generated and returned.
+ * [ rectangle a ] = makeMBR(rectangle array nodes, rectangle rect)
+ * @static function
+ */
+Rectangle.makeMBR = function (nodes, rect) {
+  if (!nodes.length) {
+    return {
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0
+    };
+  }
+  rect = rect || {};
+  rect.x = nodes[0].x;
+  rect.y = nodes[0].y;
+  rect.w = nodes[0].w;
+  rect.h = nodes[0].h;
+
+  for (var i = 1, len = nodes.length; i < len; i++) {
+    Rectangle.expandRectangle(rect, nodes[i]);
+  }
+
+  return rect;
+};
+Rectangle.squarifiedRatio = function (l, w, fill) {
+  // Area of new enlarged rectangle
+  var lperi = (l + w) / 2.0; // Average size of a side of the new rectangle
+  var larea = l * w; // Area of new rectangle
+  // return the ratio of the perimeter to the area - the closer to 1 we are,
+  // the more 'square' a rectangle is. conversly, when approaching zero the
+  // more elongated a rectangle is
+  var lgeo = larea / (lperi * lperi);
+  return larea * fill / lgeo;
+};
+module.exports = Rectangle;};
+BundleModuleCode['rtree/geojson']=function (module,exports,global,process){
+'use strict';
+var rectangle = Require('rtree/rectangle');
+var bbox = function (ar, obj) {
+  if (obj && obj.bbox) {
+    return {
+      leaf: obj,
+      x: obj.bbox[0],
+      y: obj.bbox[1],
+      w: obj.bbox[2] - obj.bbox[0],
+      h: obj.bbox[3] - obj.bbox[1]
+    };
+  }
+  var len = ar.length;
+  var i = 0;
+  var a = new Array(len);
+  while (i < len) {
+    a[i] = [ar[i][0], ar[i][1]];
+    i++;
+  }
+  var first = a[0];
+  len = a.length;
+  i = 1;
+  var temp = {
+    min: [].concat(first),
+    max: [].concat(first)
+  };
+  while (i < len) {
+    if (a[i][0] < temp.min[0]) {
+      temp.min[0] = a[i][0];
+    }
+    else if (a[i][0] > temp.max[0]) {
+      temp.max[0] = a[i][0];
+    }
+    if (a[i][1] < temp.min[1]) {
+      temp.min[1] = a[i][1];
+    }
+    else if (a[i][1] > temp.max[1]) {
+      temp.max[1] = a[i][1];
+    }
+    i++;
+  }
+  var out = {
+    x: temp.min[0],
+    y: temp.min[1],
+    w: (temp.max[0] - temp.min[0]),
+    h: (temp.max[1] - temp.min[1])
+  };
+  if (obj) {
+    out.leaf = obj;
+  }
+  return out;
+};
+var geoJSON = {};
+geoJSON.point = function (obj, self) {
+  return (self.insertSubtree({
+    x: obj.geometry.coordinates[0],
+    y: obj.geometry.coordinates[1],
+    w: 0,
+    h: 0,
+    leaf: obj
+  }, self.root));
+};
+geoJSON.multiPointLineString = function (obj, self) {
+  return (self.insertSubtree(bbox(obj.geometry.coordinates, obj), self.root));
+};
+geoJSON.multiLineStringPolygon = function (obj, self) {
+  return (self.insertSubtree(bbox(Array.prototype.concat.apply([], obj.geometry.coordinates), obj), self.root));
+};
+geoJSON.multiPolygon = function (obj, self) {
+  return (self.insertSubtree(bbox(Array.prototype.concat.apply([], Array.prototype.concat.apply([], obj.geometry.coordinates)), obj), self.root));
+};
+geoJSON.makeRec = function (obj) {
+  return rectangle(obj.x, obj.y, obj.w, obj.h);
+};
+geoJSON.geometryCollection = function (obj, self) {
+  if (obj.bbox) {
+    return (self.insertSubtree({
+      leaf: obj,
+      x: obj.bbox[0],
+      y: obj.bbox[1],
+      w: obj.bbox[2] - obj.bbox[0],
+      h: obj.bbox[3] - obj.bbox[1]
+    }, self.root));
+  }
+  var geos = obj.geometry.geometries;
+  var i = 0;
+  var len = geos.length;
+  var temp = [];
+  var g;
+  while (i < len) {
+    g = geos[i];
+    switch (g.type) {
+    case 'Point':
+      temp.push(geoJSON.makeRec({
+        x: g.coordinates[0],
+        y: g.coordinates[1],
+        w: 0,
+        h: 0
+      }));
+      break;
+    case 'MultiPoint':
+      temp.push(geoJSON.makeRec(bbox(g.coordinates)));
+      break;
+    case 'LineString':
+      temp.push(geoJSON.makeRec(bbox(g.coordinates)));
+      break;
+    case 'MultiLineString':
+      temp.push(geoJSON.makeRec(bbox(Array.prototype.concat.apply([], g.coordinates))));
+      break;
+    case 'Polygon':
+      temp.push(geoJSON.makeRec(bbox(Array.prototype.concat.apply([], g.coordinates))));
+      break;
+    case 'MultiPolygon':
+      temp.push(geoJSON.makeRec(bbox(Array.prototype.concat.apply([], Array.prototype.concat.apply([], g.coordinates)))));
+      break;
+    case 'GeometryCollection':
+      geos = geos.concat(g.geometries);
+      len = geos.length;
+      break;
+    }
+    i++;
+  }
+  var first = temp[0];
+  i = 1;
+  len = temp.length;
+  while (i < len) {
+    first.expand(temp[i]);
+    i++;
+  }
+  return self.insertSubtree({
+    leaf: obj,
+    x: first.x(),
+    y: first.y(),
+    h: first.h(),
+    w: first.w()
+  }, self.root);
+};
+exports.geoJSON = function (prelim) {
+  var that = this;
+  var features, feature;
+  if (Array.isArray(prelim)) {
+    features = prelim.slice();
+  }
+  else if (prelim.features && Array.isArray(prelim.features)) {
+    features = prelim.features.slice();
+  }
+  else if (prelim instanceof Object) {
+    features = [prelim];
+  } else {
+    throw ('this isn\'t what we\'re looking for');
+  }
+  var len = features.length;
+  var i = 0;
+  while (i < len) {
+    feature = features[i];
+    if (feature.type === 'Feature') {
+      switch (feature.geometry.type) {
+      case 'Point':
+        geoJSON.point(feature, that);
+        break;
+      case 'MultiPoint':
+        geoJSON.multiPointLineString(feature, that);
+        break;
+      case 'LineString':
+        geoJSON.multiPointLineString(feature, that);
+        break;
+      case 'MultiLineString':
+        geoJSON.multiLineStringPolygon(feature, that);
+        break;
+      case 'Polygon':
+        geoJSON.multiLineStringPolygon(feature, that);
+        break;
+      case 'MultiPolygon':
+        geoJSON.multiPolygon(feature, that);
+        break;
+      case 'GeometryCollection':
+        geoJSON.geometryCollection(feature, that);
+        break;
+      }
+    }
+    i++;
+  }
+};
+exports.bbox = function () {
+  var x1, y1, x2, y2;
+  switch (arguments.length) {
+  case 1:
+    x1 = arguments[0][0][0];
+    y1 = arguments[0][0][1];
+    x2 = arguments[0][1][0];
+    y2 = arguments[0][1][1];
+    break;
+  case 2:
+    x1 = arguments[0][0];
+    y1 = arguments[0][1];
+    x2 = arguments[1][0];
+    y2 = arguments[1][1];
+    break;
+  case 4:
+    x1 = arguments[0];
+    y1 = arguments[1];
+    x2 = arguments[2];
+    y2 = arguments[3];
+    break;
+  }
+
+  return this.search({
+    x: x1,
+    y: y1,
+    w: x2 - x1,
+    h: y2 - y1
+  });
+};
+};
+BundleModuleCode['plugins/rtree/rbush']=function (module,exports,global,process){
+/* https://github.com/mourner/rbush*/
+
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.rbush = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+'use strict';
+
+module.exports = rbush;
+
+var quickselect = require('quickselect');
+
+function rbush(maxEntries, format) {
+    if (!(this instanceof rbush)) return new rbush(maxEntries, format);
+
+    // max entries in a node is 9 by default; min node fill is 40% for best performance
+    this._maxEntries = Math.max(4, maxEntries || 9);
+    this._minEntries = Math.max(2, Math.ceil(this._maxEntries * 0.4));
+
+    if (format) {
+        this._initFormat(format);
+    }
+
+    this.clear();
+}
+
+rbush.prototype = {
+
+    all: function () {
+        return this._all(this.data, []);
+    },
+
+    search: function (bbox) {
+
+        var node = this.data,
+            result = [],
+            toBBox = this.toBBox;
+
+        if (!intersects(bbox, node)) return result;
+
+        var nodesToSearch = [],
+            i, len, child, childBBox;
+
+        while (node) {
+            for (i = 0, len = node.children.length; i < len; i++) {
+
+                child = node.children[i];
+                childBBox = node.leaf ? toBBox(child) : child;
+
+                if (intersects(bbox, childBBox)) {
+                    if (node.leaf) result.push(child);
+                    else if (contains(bbox, childBBox)) this._all(child, result);
+                    else nodesToSearch.push(child);
+                }
+            }
+            node = nodesToSearch.pop();
+        }
+
+        return result;
+    },
+
+    collides: function (bbox) {
+
+        var node = this.data,
+            toBBox = this.toBBox;
+
+        if (!intersects(bbox, node)) return false;
+
+        var nodesToSearch = [],
+            i, len, child, childBBox;
+
+        while (node) {
+            for (i = 0, len = node.children.length; i < len; i++) {
+
+                child = node.children[i];
+                childBBox = node.leaf ? toBBox(child) : child;
+
+                if (intersects(bbox, childBBox)) {
+                    if (node.leaf || contains(bbox, childBBox)) return true;
+                    nodesToSearch.push(child);
+                }
+            }
+            node = nodesToSearch.pop();
+        }
+
+        return false;
+    },
+
+    load: function (data) {
+        if (!(data && data.length)) return this;
+
+        if (data.length < this._minEntries) {
+            for (var i = 0, len = data.length; i < len; i++) {
+                this.insert(data[i]);
+            }
+            return this;
+        }
+
+        // recursively build the tree with the given data from stratch using OMT algorithm
+        var node = this._build(data.slice(), 0, data.length - 1, 0);
+
+        if (!this.data.children.length) {
+            // save as is if tree is empty
+            this.data = node;
+
+        } else if (this.data.height === node.height) {
+            // split root if trees have the same height
+            this._splitRoot(this.data, node);
+
+        } else {
+            if (this.data.height < node.height) {
+                // swap trees if inserted one is bigger
+                var tmpNode = this.data;
+                this.data = node;
+                node = tmpNode;
+            }
+
+            // insert the small tree into the large tree at appropriate level
+            this._insert(node, this.data.height - node.height - 1, true);
+        }
+
+        return this;
+    },
+
+    insert: function (item) {
+        if (item) this._insert(item, this.data.height - 1);
+        return this;
+    },
+
+    clear: function () {
+        this.data = createNode([]);
+        return this;
+    },
+
+    remove: function (item, equalsFn) {
+        if (!item) return this;
+
+        var node = this.data,
+            bbox = this.toBBox(item),
+            path = [],
+            indexes = [],
+            i, parent, index, goingUp;
+
+        // depth-first iterative tree traversal
+        while (node || path.length) {
+
+            if (!node) { // go up
+                node = path.pop();
+                parent = path[path.length - 1];
+                i = indexes.pop();
+                goingUp = true;
+            }
+
+            if (node.leaf) { // check current node
+                index = findItem(item, node.children, equalsFn);
+
+                if (index !== -1) {
+                    // item found, remove the item and condense tree upwards
+                    node.children.splice(index, 1);
+                    path.push(node);
+                    this._condense(path);
+                    return this;
+                }
+            }
+
+            if (!goingUp && !node.leaf && contains(node, bbox)) { // go down
+                path.push(node);
+                indexes.push(i);
+                i = 0;
+                parent = node;
+                node = node.children[0];
+
+            } else if (parent) { // go right
+                i++;
+                node = parent.children[i];
+                goingUp = false;
+
+            } else node = null; // nothing found
+        }
+
+        return this;
+    },
+
+    toBBox: function (item) { return item; },
+
+    compareMinX: compareNodeMinX,
+    compareMinY: compareNodeMinY,
+
+    toJSON: function () { return this.data; },
+
+    fromJSON: function (data) {
+        this.data = data;
+        return this;
+    },
+
+    _all: function (node, result) {
+        var nodesToSearch = [];
+        while (node) {
+            if (node.leaf) result.push.apply(result, node.children);
+            else nodesToSearch.push.apply(nodesToSearch, node.children);
+
+            node = nodesToSearch.pop();
+        }
+        return result;
+    },
+
+    _build: function (items, left, right, height) {
+
+        var N = right - left + 1,
+            M = this._maxEntries,
+            node;
+
+        if (N <= M) {
+            // reached leaf level; return leaf
+            node = createNode(items.slice(left, right + 1));
+            calcBBox(node, this.toBBox);
+            return node;
+        }
+
+        if (!height) {
+            // target height of the bulk-loaded tree
+            height = Math.ceil(Math.log(N) / Math.log(M));
+
+            // target number of root entries to maximize storage utilization
+            M = Math.ceil(N / Math.pow(M, height - 1));
+        }
+
+        node = createNode([]);
+        node.leaf = false;
+        node.height = height;
+
+        // split the items into M mostly square tiles
+
+        var N2 = Math.ceil(N / M),
+            N1 = N2 * Math.ceil(Math.sqrt(M)),
+            i, j, right2, right3;
+
+        multiSelect(items, left, right, N1, this.compareMinX);
+
+        for (i = left; i <= right; i += N1) {
+
+            right2 = Math.min(i + N1 - 1, right);
+
+            multiSelect(items, i, right2, N2, this.compareMinY);
+
+            for (j = i; j <= right2; j += N2) {
+
+                right3 = Math.min(j + N2 - 1, right2);
+
+                // pack each entry recursively
+                node.children.push(this._build(items, j, right3, height - 1));
+            }
+        }
+
+        calcBBox(node, this.toBBox);
+
+        return node;
+    },
+
+    _chooseSubtree: function (bbox, node, level, path) {
+
+        var i, len, child, targetNode, area, enlargement, minArea, minEnlargement;
+
+        while (true) {
+            path.push(node);
+
+            if (node.leaf || path.length - 1 === level) break;
+
+            minArea = minEnlargement = Infinity;
+
+            for (i = 0, len = node.children.length; i < len; i++) {
+                child = node.children[i];
+                area = bboxArea(child);
+                enlargement = enlargedArea(bbox, child) - area;
+
+                // choose entry with the least area enlargement
+                if (enlargement < minEnlargement) {
+                    minEnlargement = enlargement;
+                    minArea = area < minArea ? area : minArea;
+                    targetNode = child;
+
+                } else if (enlargement === minEnlargement) {
+                    // otherwise choose one with the smallest area
+                    if (area < minArea) {
+                        minArea = area;
+                        targetNode = child;
+                    }
+                }
+            }
+
+            node = targetNode || node.children[0];
+        }
+
+        return node;
+    },
+
+    _insert: function (item, level, isNode) {
+
+        var toBBox = this.toBBox,
+            bbox = isNode ? item : toBBox(item),
+            insertPath = [];
+
+        // find the best node for accommodating the item, saving all nodes along the path too
+        var node = this._chooseSubtree(bbox, this.data, level, insertPath);
+
+        // put the item into the node
+        node.children.push(item);
+        extend(node, bbox);
+
+        // split on node overflow; propagate upwards if necessary
+        while (level >= 0) {
+            if (insertPath[level].children.length > this._maxEntries) {
+                this._split(insertPath, level);
+                level--;
+            } else break;
+        }
+
+        // adjust bboxes along the insertion path
+        this._adjustParentBBoxes(bbox, insertPath, level);
+    },
+
+    // split overflowed node into two
+    _split: function (insertPath, level) {
+
+        var node = insertPath[level],
+            M = node.children.length,
+            m = this._minEntries;
+
+        this._chooseSplitAxis(node, m, M);
+
+        var splitIndex = this._chooseSplitIndex(node, m, M);
+
+        var newNode = createNode(node.children.splice(splitIndex, node.children.length - splitIndex));
+        newNode.height = node.height;
+        newNode.leaf = node.leaf;
+
+        calcBBox(node, this.toBBox);
+        calcBBox(newNode, this.toBBox);
+
+        if (level) insertPath[level - 1].children.push(newNode);
+        else this._splitRoot(node, newNode);
+    },
+
+    _splitRoot: function (node, newNode) {
+        // split root node
+        this.data = createNode([node, newNode]);
+        this.data.height = node.height + 1;
+        this.data.leaf = false;
+        calcBBox(this.data, this.toBBox);
+    },
+
+    _chooseSplitIndex: function (node, m, M) {
+
+        var i, bbox1, bbox2, overlap, area, minOverlap, minArea, index;
+
+        minOverlap = minArea = Infinity;
+
+        for (i = m; i <= M - m; i++) {
+            bbox1 = distBBox(node, 0, i, this.toBBox);
+            bbox2 = distBBox(node, i, M, this.toBBox);
+
+            overlap = intersectionArea(bbox1, bbox2);
+            area = bboxArea(bbox1) + bboxArea(bbox2);
+
+            // choose distribution with minimum overlap
+            if (overlap < minOverlap) {
+                minOverlap = overlap;
+                index = i;
+
+                minArea = area < minArea ? area : minArea;
+
+            } else if (overlap === minOverlap) {
+                // otherwise choose distribution with minimum area
+                if (area < minArea) {
+                    minArea = area;
+                    index = i;
+                }
+            }
+        }
+
+        return index;
+    },
+
+    // sorts node children by the best axis for split
+    _chooseSplitAxis: function (node, m, M) {
+
+        var compareMinX = node.leaf ? this.compareMinX : compareNodeMinX,
+            compareMinY = node.leaf ? this.compareMinY : compareNodeMinY,
+            xMargin = this._allDistMargin(node, m, M, compareMinX),
+            yMargin = this._allDistMargin(node, m, M, compareMinY);
+
+        // if total distributions margin value is minimal for x, sort by minX,
+        // otherwise it's already sorted by minY
+        if (xMargin < yMargin) node.children.sort(compareMinX);
+    },
+
+    // total margin of all possible split distributions where each node is at least m full
+    _allDistMargin: function (node, m, M, compare) {
+
+        node.children.sort(compare);
+
+        var toBBox = this.toBBox,
+            leftBBox = distBBox(node, 0, m, toBBox),
+            rightBBox = distBBox(node, M - m, M, toBBox),
+            margin = bboxMargin(leftBBox) + bboxMargin(rightBBox),
+            i, child;
+
+        for (i = m; i < M - m; i++) {
+            child = node.children[i];
+            extend(leftBBox, node.leaf ? toBBox(child) : child);
+            margin += bboxMargin(leftBBox);
+        }
+
+        for (i = M - m - 1; i >= m; i--) {
+            child = node.children[i];
+            extend(rightBBox, node.leaf ? toBBox(child) : child);
+            margin += bboxMargin(rightBBox);
+        }
+
+        return margin;
+    },
+
+    _adjustParentBBoxes: function (bbox, path, level) {
+        // adjust bboxes along the given tree path
+        for (var i = level; i >= 0; i--) {
+            extend(path[i], bbox);
+        }
+    },
+
+    _condense: function (path) {
+        // go through the path, removing empty nodes and updating bboxes
+        for (var i = path.length - 1, siblings; i >= 0; i--) {
+            if (path[i].children.length === 0) {
+                if (i > 0) {
+                    siblings = path[i - 1].children;
+                    siblings.splice(siblings.indexOf(path[i]), 1);
+
+                } else this.clear();
+
+            } else calcBBox(path[i], this.toBBox);
+        }
+    },
+
+    _initFormat: function (format) {
+        // data format (minX, minY, maxX, maxY accessors)
+
+        // uses eval-type function compilation instead of just accepting a toBBox function
+        // because the algorithms are very sensitive to sorting functions performance,
+        // so they should be dead simple and without inner calls
+
+        var compareArr = ['return a', ' - b', ';'];
+
+        this.compareMinX = new Function('a', 'b', compareArr.join(format[0]));
+        this.compareMinY = new Function('a', 'b', compareArr.join(format[1]));
+
+        this.toBBox = new Function('a',
+            'return {minX: a' + format[0] +
+            ', minY: a' + format[1] +
+            ', maxX: a' + format[2] +
+            ', maxY: a' + format[3] + '};');
+    }
+};
+
+function findItem(item, items, equalsFn) {
+    if (!equalsFn) return items.indexOf(item);
+
+    for (var i = 0; i < items.length; i++) {
+        if (equalsFn(item, items[i])) return i;
+    }
+    return -1;
+}
+
+// calculate node's bbox from bboxes of its children
+function calcBBox(node, toBBox) {
+    distBBox(node, 0, node.children.length, toBBox, node);
+}
+
+// min bounding rectangle of node children from k to p-1
+function distBBox(node, k, p, toBBox, destNode) {
+    if (!destNode) destNode = createNode(null);
+    destNode.minX = Infinity;
+    destNode.minY = Infinity;
+    destNode.maxX = -Infinity;
+    destNode.maxY = -Infinity;
+
+    for (var i = k, child; i < p; i++) {
+        child = node.children[i];
+        extend(destNode, node.leaf ? toBBox(child) : child);
+    }
+
+    return destNode;
+}
+
+function extend(a, b) {
+    a.minX = Math.min(a.minX, b.minX);
+    a.minY = Math.min(a.minY, b.minY);
+    a.maxX = Math.max(a.maxX, b.maxX);
+    a.maxY = Math.max(a.maxY, b.maxY);
+    return a;
+}
+
+function compareNodeMinX(a, b) { return a.minX - b.minX; }
+function compareNodeMinY(a, b) { return a.minY - b.minY; }
+
+function bboxArea(a)   { return (a.maxX - a.minX) * (a.maxY - a.minY); }
+function bboxMargin(a) { return (a.maxX - a.minX) + (a.maxY - a.minY); }
+
+function enlargedArea(a, b) {
+    return (Math.max(b.maxX, a.maxX) - Math.min(b.minX, a.minX)) *
+           (Math.max(b.maxY, a.maxY) - Math.min(b.minY, a.minY));
+}
+
+function intersectionArea(a, b) {
+    var minX = Math.max(a.minX, b.minX),
+        minY = Math.max(a.minY, b.minY),
+        maxX = Math.min(a.maxX, b.maxX),
+        maxY = Math.min(a.maxY, b.maxY);
+
+    return Math.max(0, maxX - minX) *
+           Math.max(0, maxY - minY);
+}
+
+function contains(a, b) {
+    return a.minX <= b.minX &&
+           a.minY <= b.minY &&
+           b.maxX <= a.maxX &&
+           b.maxY <= a.maxY;
+}
+
+function intersects(a, b) {
+    return b.minX <= a.maxX &&
+           b.minY <= a.maxY &&
+           b.maxX >= a.minX &&
+           b.maxY >= a.minY;
+}
+
+function createNode(children) {
+    return {
+        children: children,
+        height: 1,
+        leaf: true,
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity
+    };
+}
+
+// sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
+// combines selection algorithm with binary divide & conquer approach
+
+function multiSelect(arr, left, right, n, compare) {
+    var stack = [left, right],
+        mid;
+
+    while (stack.length) {
+        right = stack.pop();
+        left = stack.pop();
+
+        if (right - left <= n) continue;
+
+        mid = left + Math.ceil((right - left) / n / 2) * n;
+        quickselect(arr, mid, left, right, compare);
+
+        stack.push(left, mid, mid, right);
+    }
+}
+
+},{"quickselect":2}],2:[function(require,module,exports){
+'use strict';
+
+module.exports = partialSort;
+
+// Floyd-Rivest selection algorithm:
+// Rearrange items so that all items in the [left, k] range are smaller than all items in (k, right];
+// The k-th element will have the (k - left + 1)th smallest value in [left, right]
+
+function partialSort(arr, k, left, right, compare) {
+
+    while (right > left) {
+        if (right - left > 600) {
+            var n = right - left + 1;
+            var m = k - left + 1;
+            var z = Math.log(n);
+            var s = 0.5 * Math.exp(2 * z / 3);
+            var sd = 0.5 * Math.sqrt(z * s * (n - s) / n) * (m - n / 2 < 0 ? -1 : 1);
+            var newLeft = Math.max(left, Math.floor(k - m * s / n + sd));
+            var newRight = Math.min(right, Math.floor(k + (n - m) * s / n + sd));
+            partialSort(arr, k, newLeft, newRight, compare);
+        }
+
+        var t = arr[k];
+        var i = left;
+        var j = right;
+
+        swap(arr, left, k);
+        if (compare(arr[right], t) > 0) swap(arr, left, right);
+
+        while (i < j) {
+            swap(arr, i, j);
+            i++;
+            j--;
+            while (compare(arr[i], t) < 0) i++;
+            while (compare(arr[j], t) > 0) j--;
+        }
+
+        if (compare(arr[left], t) === 0) swap(arr, left, j);
+        else {
+            j++;
+            swap(arr, j, right);
+        }
+
+        if (j <= k) left = j + 1;
+        if (k <= j) right = j - 1;
+    }
+}
+
+function swap(arr, i, j) {
+    var tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+}
+
+function defaultCompare(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
+},{}]},{},[1])(1)
+});
+};
+BundleModuleCode['plugins/rtree/rbush-knn']=function (module,exports,global,process){
+/* https://github.com/mourner/rbush-knn */
+
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.knn = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+'use strict';
+
+var Queue = require('tinyqueue');
+
+module.exports = knn;
+module.exports.default = knn;
+
+function knn(tree, x, y, n, predicate, maxDistance) {
+    var node = tree.data,
+        result = [],
+        toBBox = tree.toBBox,
+        i, child, dist, candidate;
+
+    var queue = new Queue(undefined, compareDist);
+
+    while (node) {
+        for (i = 0; i < node.children.length; i++) {
+            child = node.children[i];
+            dist = boxDist(x, y, node.leaf ? toBBox(child) : child);
+            if (!maxDistance || dist <= maxDistance * maxDistance) {
+                queue.push({
+                    node: child,
+                    isItem: node.leaf,
+                    dist: dist
+                });
+            }
+        }
+
+        while (queue.length && queue.peek().isItem) {
+            candidate = queue.pop().node;
+            if (!predicate || predicate(candidate))
+                result.push(candidate);
+            if (n && result.length === n) return result;
+        }
+
+        node = queue.pop();
+        if (node) node = node.node;
+    }
+
+    return result;
+}
+
+function compareDist(a, b) {
+    return a.dist - b.dist;
+}
+
+function boxDist(x, y, box) {
+    var dx = axisDist(x, box.minX, box.maxX),
+        dy = axisDist(y, box.minY, box.maxY);
+    return dx * dx + dy * dy;
+}
+
+function axisDist(k, min, max) {
+    return k < min ? min - k : k <= max ? 0 : k - max;
+}
+
+},{"tinyqueue":2}],2:[function(require,module,exports){
+(function (global, factory) {
+typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+typeof define === 'function' && define.amd ? define(factory) :
+(global = global || self, global.TinyQueue = factory());
+}(this, function () { 'use strict';
+
+var TinyQueue = function TinyQueue(data, compare) {
+    if ( data === void 0 ) data = [];
+    if ( compare === void 0 ) compare = defaultCompare;
+
+    this.data = data;
+    this.length = this.data.length;
+    this.compare = compare;
+
+    if (this.length > 0) {
+        for (var i = (this.length >> 1) - 1; i >= 0; i--) { this._down(i); }
+    }
+};
+
+TinyQueue.prototype.push = function push (item) {
+    this.data.push(item);
+    this.length++;
+    this._up(this.length - 1);
+};
+
+TinyQueue.prototype.pop = function pop () {
+    if (this.length === 0) { return undefined; }
+
+    var top = this.data[0];
+    var bottom = this.data.pop();
+    this.length--;
+
+    if (this.length > 0) {
+        this.data[0] = bottom;
+        this._down(0);
+    }
+
+    return top;
+};
+
+TinyQueue.prototype.peek = function peek () {
+    return this.data[0];
+};
+
+TinyQueue.prototype._up = function _up (pos) {
+    var ref = this;
+        var data = ref.data;
+        var compare = ref.compare;
+    var item = data[pos];
+
+    while (pos > 0) {
+        var parent = (pos - 1) >> 1;
+        var current = data[parent];
+        if (compare(item, current) >= 0) { break; }
+        data[pos] = current;
+        pos = parent;
+    }
+
+    data[pos] = item;
+};
+
+TinyQueue.prototype._down = function _down (pos) {
+    var ref = this;
+        var data = ref.data;
+        var compare = ref.compare;
+    var halfLength = this.length >> 1;
+    var item = data[pos];
+
+    while (pos < halfLength) {
+        var left = (pos << 1) + 1;
+        var best = data[left];
+        var right = left + 1;
+
+        if (right < this.length && compare(data[right], best) < 0) {
+            left = right;
+            best = data[right];
+        }
+        if (compare(best, item) >= 0) { break; }
+
+        data[pos] = best;
+        pos = left;
+    }
+
+    data[pos] = item;
+};
+
+function defaultCompare(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
+return TinyQueue;
+
+}));
+
+},{}]},{},[1])(1)
+});
+};
+
+var Base64=Require('os/base64');
+module.exports = Require('plugins/ca/cat.lib.js');
+if (typeof window != 'undefined') for(var p in module.exports) window[p]=module.exports[p];
+return module.exports;

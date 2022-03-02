@@ -17,6 +17,9 @@ CoreModule['string_decoder']='string_decoder';
 CoreModule['assert']='assert';
 CoreModule['buffer']='buffer';
 
+module.paths.push(process.env.HOME+"/.node_modules"); //append custom path to NODE_PATH
+module.paths.push(process.env.HOME+"/node_modules"); //append custom path to NODE_PATH
+module.paths.push(process.env.PWD); //append custom path to NODE_PATH
 var BundleModuleCode=[];
 var BundleObjectCode=[];
 var BundleModules = [];
@@ -1791,8 +1794,10 @@ BundleModuleCode['top/worksh.js']=function (module,exports){
 /**
  * WorkBook Shell (CLI)
  */
+
+/* Soem hacks */
 process.noDeprecation = true
- 
+
 var fs = require('fs');
 var bd = Require('aux/build');
 var linereader = Require('linereader');
@@ -1824,11 +1829,15 @@ Code.sms    = Require('plugins/pcsp/sm.js');
 Code.Worker = Require('Worker.js');
 var BufferObjects = Require('plugins/pcsp/bobj.js');
 // Code.webworker = Require('plugins/com/webworker.js');
-var http    = Require('http');
+var http    = require('http');
 var fs      = Require('fs');
 var cache   = Require('cache');
 var yaml    = Require('yaml');
 var line    = Require('aux/line/line');
+var Http    = Require('plugins/com/Http.js');
+var Html    = Require('plugins/html/html.js');
+var Encryptor = Require('fpe'); // Format preserving encryption
+
 var PATH = {
   basename : function (path,extension) {
     if (path[path.length-1]=='/') return '/';
@@ -1977,7 +1986,7 @@ var options= {
   renderer : renderer,
   server : false,
   verbose : 0,
-  version : '1.18.2 ['+BuildDate+']',
+  version : '1.20.1 ['+BuildDate+']',
 }
 
 function format(line) {
@@ -2130,6 +2139,7 @@ Shell.prototype.init = function(callback) {
       var time=process.hrtime();
       return +time[0] * 1e9 + +time[1];
     },
+    Encryptor : Encryptor,
     exit : function () {   process.exit() },
     error : function (msg) {
       if (msg instanceof Error) throw msg;
@@ -2142,6 +2152,8 @@ Shell.prototype.init = function(callback) {
       print(help ())
     },
     iter : Code.iter,
+    Html:Html,
+    Http:Http,
     json : {
       read : function (path) {
         var data = fs.readFileSync(path,'utf8');
@@ -2991,7 +3003,7 @@ if (process.argv[1].match(/worksh$/)||process.argv[1].match(/worksh\.debug$/)) {
 
 };
 BundleModuleCode['aux/build']=function (module,exports){
-BuildDate="02/22/22"
+BuildDate="03/02/22"
 };
 BundleModuleCode['linereader']=function (module,exports){
 'use strict';
@@ -3798,6 +3810,35 @@ Utils = {
                 ;
   },
 
+  network : function () {
+    const results = Object.create(null); // Or just '{}', an empty object
+    Object.defineProperty(results, 'first', {
+      value: function () {
+        var keys = Object.keys(this); 
+        return keys.length? this[keys[0]][0]:null
+      },
+      writable: false,
+      enumerable : false,
+    });
+    try { 
+      const networkInterfaces  = require('os').networkInterfaces;
+      const nets = networkInterfaces();
+      for (const name of Object.keys(nets)) {
+          for (const net of nets[name]) {
+              // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+              if (net.family === 'IPv4' && !net.internal) {
+                  if (!results[name]) {
+                      results[name] = [];
+                  }
+                  results[name].push(net.address);
+              }
+          }
+      }
+    } catch (e) {};
+    
+    return results
+  },
+  
   serialize : function (data) {
     return JSONfn.serialize(data)
   },
@@ -23757,6 +23798,35 @@ Utils = {
                 ;
   },
 
+  network : function () {
+    const results = Object.create(null); // Or just '{}', an empty object
+    Object.defineProperty(results, 'first', {
+      value: function () {
+        var keys = Object.keys(this); 
+        return keys.length? this[keys[0]][0]:null
+      },
+      writable: false,
+      enumerable : false,
+    });
+    try { 
+      const networkInterfaces  = require('os').networkInterfaces;
+      const nets = networkInterfaces();
+      for (const name of Object.keys(nets)) {
+          for (const net of nets[name]) {
+              // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+              if (net.family === 'IPv4' && !net.internal) {
+                  if (!results[name]) {
+                      results[name] = [];
+                  }
+                  results[name].push(net.address);
+              }
+          }
+      }
+    } catch (e) {};
+    
+    return results
+  },
+  
   serialize : function (data) {
     return JSONfn.serialize(data)
   },
@@ -33737,18 +33807,9 @@ var  ml = {
         if (options.architect) {
           // Special MLP
           if (options.architect instanceof Array) {
-            // Different architecture in each layer
+            // Different architectures in each layer
             if (options.architect.length != options.layers.length) throw "ML.trainer.ANN: layers & architect array must have same size";
-            var layers = [],prevLay;
-            for(var i in options.architect) {
-              var layA=options.architect[i],
-                  layN=options.layers[i];
-              if (!ANN.Layer[layA]) throw "ML.trainer.ANN: invalid layer architect "+layA;
-              var lay = new ANN.Layer[layA](layN);
-              layers.push(lay);
-              if (prevLay) prevLay.connect(lay); 
-              prevLay=lay;
-            }
+            var layers = ANN.architect.Layers(options);
             model.network = ANN.architect.Construct(layers);
           } else {
             switch (options.architect) {
@@ -45567,7 +45628,7 @@ BundleModuleCode['plugins/ml/ann']=function (module,exports){
  **                 OUTSIDE OF THE SOFTWARE SYSTEM.
  **
  **    $AUTHORS:     Thomas Wagenaar, Stefan Bosse, 
- **    $VERSION:     1.7.5X
+ **    $VERSION:     1.8.1X
  **
  **    $INFO:
  **
@@ -45586,7 +45647,7 @@ BundleModuleCode['plugins/ml/ann']=function (module,exports){
 var config = {
   groupId   : 0,
   warnings  : false,
-  version   : '1.7.5X',
+  version   : '1.8.1X',
 };
 
 /*******************************************************************************
@@ -47908,6 +47969,69 @@ var architect = {
     } else return new architect.Perceptron(args[0],args[1],args[2],args[3],args[4],args[5],
                                            args[6],args[7],args[8],args[9]);
   },
+  /*
+    Construct mixed layer network:  
+    typeof @options = {
+       architect : string [] // Dense LSTM ...
+       layers : number []  // number of nodes
+       .. more options
+     }
+  */
+  Layers : function (options) {
+    var layers = [];
+    var inputLayer,prevLay;
+    for(var i in options.architect) {
+      var layA=options.architect[i],
+          layN=options.layers[i];
+      if (!Layer[layA]) throw "ANN.Layer: invalid layer architect "+layA;
+      var lay;
+      if (layA=='LSTM') 
+        lay = new Layer[layA](layN,
+                              options,
+                              inputLayer && inputLayer!=prevLay?inputLayer:null /* for inputToDeep*/,
+                              null /* outputLayer ?*/);
+      else
+        lay = new Layer[layA](layN,options);
+      if (layA=='Dense') inputLayer=lay;
+      prevLay=lay;
+      layers.push(lay);
+    }
+    for(var i in options.architect) {
+      i=Number(i);
+      var layA=options.architect[i],
+          layN=options.layers[i],
+          lay=layers[i];
+      // handle some layer-to-layer connect options
+      if (layA=='LSTM') {
+        // input to output direct connection
+        if (options.inputToOutput) { 
+          var inputLayer=null,
+              outputLayer=null;
+          // search dense layers backward and forward
+          if (options.architect[i-1]=='Dense') inputLayer=layers[i-1];
+          if (inputLayer) for(var j=i+1;j<options.architect.length;j++) {
+            if (options.architect[j]=='Dense') {
+              outputLayer=layers[j];
+              break;
+            }
+          }
+          if (inputLayer && outputLayer) {
+            console.log('inputToOutput')
+            inputLayer.connect(outputLayer, methods.connection.ALL_TO_ALL,options.weight);
+          }
+        }
+      }
+    }
+    prevLay=null;
+    for(var i in options.architect) {
+      var layA=options.architect[i],
+          layN=options.layers[i],
+          lay=layers[i];
+      if (prevLay) prevLay.connect(lay); 
+      prevLay=lay;
+    }
+    return layers;  
+  }
   
 };
 
@@ -48552,7 +48676,8 @@ Layer.Dense = function (size) {
   return layer;
 };
 
-Layer.LSTM = function (size) {
+Layer.LSTM = function (size,options,inputLayer,outputLayer) {
+  options=options||{}
   // Create the layer
   var layer = new Layer();
 
@@ -48606,6 +48731,31 @@ Layer.LSTM = function (size) {
 
     return connections;
   };
+
+  // @blab TODO TBC Optional connections
+  // Input to all memory cells
+  if (inputLayer && options.inputToDeep) {
+    console.log('inputToDeep')
+    var input = inputLayer.connect(memoryCell, methods.connection.ALL_TO_ALL,options.weight);
+    inputGate.gate(input, methods.gating.INPUT);
+  }
+  // Optional connections
+  if (options.memoryToMemory) {
+    console.log('memoryToMemory')
+    var input = memoryCell.connect(memoryCell, methods.connection.ALL_TO_ELSE,options.weight);
+    inputGate.gate(input, methods.gating.INPUT);
+  }
+  if (options.outputToMemory) {
+    console.log('outputToMemory')
+    var input = outputLayer.connect(memoryCell, methods.connection.ALL_TO_ALL,options.weight);
+    inputGate.gate(input, methods.gating.INPUT);
+  }
+  if (outputLayer && options.outputToGates) {
+    console.log('outputToGates')
+    outputLayer.connect(inputGate, methods.connection.ALL_TO_ALL,options.weight);
+    outputLayer.connect(forgetGate, methods.connection.ALL_TO_ALL,options.weight);
+    outputLayer.connect(outputGate, methods.connection.ALL_TO_ALL,options.weight);
+  }
 
   return layer;
 };
@@ -59424,9 +59574,6 @@ Worker = {
             };            
           });
         },
-        status : function () { 
-          process.send({ command:'pstatus',data:Array.prototype.slice.call(arguments), console:this.Console||Console})
-        },
         schedule : async function () {
           return new Promise(function (resolve,reject) {
             setTimeout(function () {
@@ -59441,8 +59588,11 @@ Worker = {
             setTimeout(resolve,time);
           });    
         },
+        status : function () { 
+          process.send({ command:'pstatus',data:Array.prototype.slice.call(arguments), console:this.Console||Console})
+        },
         Table : function () {
-          process.send({command:'Table',data:toString(Array.prototype.slice.call(arguments))})
+          process.send({command:'Table',data:Array.prototype.slice.call(arguments)})
         },
         toString:toString,
         time  : Date.now,
@@ -63264,6 +63414,369 @@ const isFullwidthCodePoint = codePoint => {
 
 module.exports = isFullwidthCodePoint;
 module.exports.default = isFullwidthCodePoint;
+};
+BundleModuleCode['plugins/com/Http.js']=function (module,exports){
+/* Simplified generic client/server HTTP API for node.js */
+var Http = {}
+var https,
+    http = require('http');
+
+function parseUrl(url) {
+  if (!isNaN(Number(url)) || url=='*') return {
+    proto:  undefined,
+    host:   undefined,
+    port:   url,
+    path:   '',
+    params:  undefined,
+  }
+  function toParams (avl) {
+    var params = {};
+    avl.forEach(function (av) {
+      var parts=av.split('=');
+      params[parts[0]]=parts[1];
+    })
+    return params;
+  }
+  var tokens = url.match(/((http|https|udp|tcp):\/\/)?([a-zA-Z0-9_\.\-]+):(\[?[0-9]+\]?|\*)(\/[^\?]+)?(\?.+$)?/)
+  if (!tokens) {
+    tokens   = url.match(/((http|https|udp|tcp):\/\/)?([a-zA-Z0-9_\.\-]+)(\/[^\?]+)?(\?.+$)?/);
+    return  {
+      proto:  tokens[2],
+      host:   tokens[3],
+      port:   undefined,
+      path:   tokens[4]||'',
+      params:  tokens[5] && toParams(tokens[5].replace(/^\?/,'').split('&')),
+    }
+  } else return  {
+    proto:  tokens[2],
+    host:   tokens[3],
+    port:   tokens[4] && Number(tokens[4]),
+    path:   tokens[5]||'',
+    params:  tokens[6] && toParams(tokens[6].replace(/^\?/,'').split('&')),
+  }
+}
+
+function parseQueryString( url ) {
+    var queryString = url.substring( url.indexOf('?') + 1 );
+    if (queryString == url) return [];
+    var params = {}, queries, temp, i, l;
+    // Split into key/value pairs
+    queries = queryString.split("&");
+    // Convert the array of strings into an object
+    for ( i = 0, l = queries.length; i < l; i++ ) {
+        temp = queries[i].split('=');
+        if (temp[1]==undefined) temp[1]='true';
+        params[temp[0]] = temp[1].replace('%20',' ');
+    }
+    return params;
+}
+function reply(response,body,mimetype,proto) {
+  header={'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Credentials': 'true',
+          'Content-Type': mimetype?mimetype:'text/plain'};
+
+  if (proto=='http') response.writeHead(200,header);
+  response.write(body);
+  response.end();
+}
+
+Http.get = async function (url,callback,mimetype) {
+  var ishttps= url.match(/https:/)!=null;
+  url=url.replace(/^http[s]*:\/\//,'');
+  if (typeof callback=='string') { mimetype=callback;callback=null};
+  function exec(url,callback) {
+    var parts = parseUrl(url),
+        path  = parts.path,
+        host  = parts.host,
+        port  = parts.port||(ishttps?'443':'80'),
+        options = {
+          host: host,
+          port: port,
+          path: path,
+          method: 'GET',
+          keepAlive: true,
+          headers: {
+              // 'Content-Type': 'application/x-www-form-urlencoded',
+          }          
+        }
+    var req = (ishttps?https:http).request(options, function(res) {
+        res.setEncoding('utf8');
+        var data='';
+        res.on('data', function (chunk) {
+          data += chunk;
+          // console.log('Response: ' + chunk);
+        });
+        res.on('end', function () {
+          try {
+            var result=mimetype=='json'?JSONfn.parse(data):data;
+            // console.log('GET: ',result);
+          } catch (e) { result=e; }
+          callback(result);
+        });
+    });
+    req.on('error',function (err) {
+      // console.log(err)
+      callback(null,err);
+    });
+    req.setNoDelay();
+    // get_req.write();
+    req.end();
+  }
+  if (callback) {
+    exec(url,callback);
+  } else return new Promise(function (resolve,reject) {
+    exec(url,resolve)
+  })
+}
+Http.put = async function (url,data,callback,mimetype) {
+  var ishttps= url.match(/https:/)!=null;
+  url=url.replace(/^http[s]*:\/\//,'');
+  if (typeof callback=='string') { mimetype=callback;callback=null};
+  function exec(url,callback) {
+    var parts = parseUrl(url),
+        path  = parts.path,
+        host  = parts.host,
+        port  = parts.port||(ishttps?'443':'80'),
+        options = {
+          host: host,
+          port: port,
+          path: path,
+          method: 'GET',
+          keepAlive: true,
+          headers: {
+              // 'Content-Type': 'application/x-www-form-urlencoded',
+          }          
+        }
+    var req = (ishttps?https:http).request(options, function(res) {
+        res.setEncoding('utf8');
+        var data='';
+        res.on('data', function (chunk) {
+          data += chunk;
+          // console.log('Response: ' + chunk);
+        });
+        res.on('end', function () {
+          try {
+            var result=mimetype=='json'?JSONfn.parse(data):data;
+            // console.log('GET: ',result);
+          } catch (e) { result=e; }
+          callback(result);
+        });
+    });
+    req.on('error',function (err) {
+      // console.log(err)
+      callback(null,err);
+    });
+    req.setNoDelay();
+    req.write(mimetype=='json'?JSONfn.stringify(data):data);
+    req.end();
+  }
+  if (callback) {
+    exec(url,callback);
+  } else return new Promise(function (resolve,reject) {
+    exec(url,resolve)
+  })
+
+}
+// callback(method,url,peer,params,body,error?)
+Http.service =  function (host,port,callback,proto) {
+  var webSrv = http.createServer(function (request,response) {
+    var body,header,sep,query,res,now;
+    if (request.url.length) 
+      query=parseQueryString(request.url);
+    else 
+      query={}
+    switch (request.method) {
+      case 'GET':
+        var result = callback(request.method,request.url,'',query,null);
+        if (typeof result=='string') reply(response,result,null,proto);
+        else reply(response,result.data,result.mimetype,proto);
+        break;      
+      case 'POST':
+        body = '';
+        request.on('data', function (chunk) {
+          body = body + chunk;
+        });
+        request.on('end', function () {
+          var result = callback(request.method,request.url,body,query,null);
+          if (typeof result=='string') reply(response,result,null,proto);
+          else reply(response,result.data,result.mimetype,proto);
+        });
+        break;
+    }
+  })
+  
+  webSrv.on("connection", function (socket) {
+      // socket.setNoDelay(true);
+  });
+
+  webSrv.on("error", function (err) {
+    console.log(err)
+    callback('ERROR',null,null,null,null,err)
+  });
+
+  webSrv.listen(port,function (err) {
+    console.log('HTTP Service started (http://'+host+':'+port+')');
+  });
+  return webSrv
+}
+
+module.exports = Http;
+};
+BundleModuleCode['plugins/html/html.js']=function (module,exports){
+// HTML document formatter
+
+function html (header,body) {
+  return [
+    '<html>',
+    '<header>'
+  ].concat(header).concat([
+    '</header>',
+    '<body>'
+  ]).concat(body).concat([
+    '</body>',
+    '</html>'
+  ])
+}
+var tags = ['a','p','div','h1','h2','h3','ol','ul','li','dd','dt','dl','table','tbody','tr','td','th'];
+html.tagger = function(tag) {
+  return function (content,style) {
+    return [
+      style?'<'+tag+' style="'+style+'">':'<'+tag+'>'
+    ].concat(typeof content == 'string'?[content]:content).concat([
+      '</'+tag+'>'
+    ])
+  }
+}
+for (var i in tags) {
+  html[tags[i]]=html.tagger(tags[i]);
+}
+html.button = function (url,label,style) {
+  style=style||'';
+  label=label||url;
+  return '<button onclick="window.location.href=\''+url+'\'" style="'+style+'">'+label+'</button>'
+}
+
+html.link = function (url,label,style) {
+  style=style||'';
+  label=label||url;
+  return '<a href="'+url+'" style="'+style+'">'+label+'</a>'
+}
+
+html.list = function (items,ordered) {
+  var tag = ordered?'ol':'ul'
+  return html[tag](items.map(function (item) {
+    return html.li(item);
+  }))
+}
+html.toString = function(header,body) {
+  var H = html(header,body);
+  function flat(H) {
+    if (typeof H == 'string') return H;
+    else return H.map(flat).join('\n')
+  }
+  return flat(H)
+}
+if (typeof 'module' != 'undefined') module.exports=html;
+};
+BundleModuleCode['fpe']=function (module,exports){
+function FPEgeneric() {
+  // TODO: Browser compatible module
+  const crypto = require('crypto')
+  const numbers = '1234567890'.split('')
+
+  return function ({ password, algorithm = 'aes-256-cbc', domain = numbers }) {
+    if (!password) {
+      throw new Error('`password` is required')
+    }
+
+    function enc (text) {
+      const cipher = crypto.createCipher(algorithm, password)
+      let crypted = cipher.update(text, 'utf8', 'hex')
+      crypted += cipher.final('hex')
+      return crypted
+    }
+
+    // create a permutation of domain
+    const sorted = domain.map(c => c).sort((c1, c2) => enc(c1).localeCompare(enc(c2)))
+    const encTable = {}
+    const decTable = {}
+
+    for (let i in domain) {
+      encTable[domain[i]] = sorted[i]
+      decTable[sorted[i]] = domain[i]
+    }
+
+    function validate (text, result) {
+      if (text.length !== result.length) {
+        throw new Error('some of the input characters are not in the cipher´s domain (#text!=#result): ['+domain.length+']')
+      }
+    }
+
+    function encrypt (text) {
+      if (typeof text !== 'string') { throw new Error('input is not a string') }
+      const encrypted = text.split('').map((c) => encTable[c]).join('')
+      validate(text, encrypted)
+      return encrypted
+    }
+
+    function decrypt (text) {
+      if (typeof text !== 'string') { throw new Error('input is not a string') }
+      const decrypted = text.split('').map((c) => decTable[c]).join('')
+      validate(text, decrypted)
+      return decrypted
+    }
+
+    return { encrypt, decrypt }
+  }
+}
+var fpe = FPEgeneric();
+
+function Encryptor(options) {
+  if (!options || !options.password) throw Error('Encryptor: no options.password set');
+  if (options.binary) options.domain=256;  
+  this.options=options;
+  this._encryptor = fpe({
+    password: options.password,
+    domain: this._getAllASCIICharacters(options.domain)
+  });
+}
+Encryptor.prototype._getAllASCIICharacters = function (n) {
+  var a=32,b=127;
+  if (n) a=0,b=n;
+  const chars = [];
+  for (let i = a; i < b; ++i) {
+    chars.push(String.fromCharCode(i));
+  }
+  return chars;
+}
+Encryptor.prototype.encrypt = function(data) {
+  if (this.options.binary) data=data.toString('binary')
+  var encrypted=this._encryptor.encrypt(data);
+  if (this.options.binary) encrypted=new Buffer(encrypted,'binary');
+  return encrypted;
+}
+
+Encryptor.prototype.decrypt = function(data) {
+  if (this.options.binary) data=data.toString('binary')
+  var decrypted=this._encryptor.decrypt(data);
+  if (this.options.binary) decrypted=new Buffer(decrypted,'binary');
+  return decrypted;
+}
+
+function test() {
+  const encryptor = new Encryptor({ password: 'veronica' });
+
+  // Note: The ciphertext has the same length as the plaintext.
+  var encrypted = encryptor.encrypt('The quick brown fox number 3, jumps over the lazy dog')
+  // '/(26:*Gu`6OpRDx6>R,6x* O2p6oF6w* \b6Rt2p6C(26l7E56gR!'
+  console.log(encrypted.length,encrypted)
+  var decrypted = encryptor.decrypt(encrypted)
+  console.log(decrypted.length,decrypted)
+}
+
+module.exports = Encryptor
+
+
 };
 BundleModuleCode['cap.js']=function (module,exports){
 // TODO String/Array extensions from compat

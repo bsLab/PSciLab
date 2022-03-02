@@ -1,0 +1,2528 @@
+var CoreModule = {};
+CoreModule['com/io']='com/io';
+CoreModule['com/pwgen']='com/pwgen.lw';
+CoreModule['assert']='os/assert';
+CoreModule['crypto']='os/crypto.rand';
+CoreModule['events']='os/events';
+CoreModule['path']='os/path';
+CoreModule['string_decoder']='os/string_decoder';
+CoreModule['util']='util';
+CoreModule['http']='http';
+CoreModule['deasync']='deasync';
+CoreModule['os']='os';
+CoreModule['net']='net';
+CoreModule['fs']='fs';
+CoreModule['stream']='';
+CoreModule['url']='';
+CoreModule['zlib']='';
+CoreModule['child_process']='';
+
+var BundleModuleCode=[];
+var BundleObjectCode=[];
+var BundleModules = [];
+var Fs = require("fs");
+if (typeof __dirname == 'undefined') __dirname = '';
+if (typeof __filename == 'undefined') __filename = 'plugins/cap/cap.lib.js';
+//From compat.js
+var any = undefined;
+var empty = null;
+var none = null;
+var _ = undefined;
+var int = function (v) {return v|0};
+var div = function (a,b) {return a/b|0};
+var print = function (msg) {console.log(msg)};
+if (typeof global == 'undefined') global={};
+PATHS=[process.cwd(),".","/home/sbosse/proj/workbook/src",""];
+function _isdir(path) {
+  var stats=Fs.statSync(path);
+  return stats && stats.isDirectory()};
+function _search(index,file) {
+  if (PATHS.length==index) return file;
+  var path=PATHS[index];
+  if (Fs.existsSync(path+"/"+file+".js")) return path+"/"+file+".js";
+  else if (Fs.existsSync(path+"/"+file) && !_isdir(path+"/"+file)) return path+"/"+file;
+  else return _search(index+1,file);
+ }
+var __library=arguments&&arguments[3];
+function Require(modupath) { 
+  var file,filepath;
+  if (BundleModules[modupath]) return BundleModules[modupath];
+  var exports={}; var module={exports:exports};
+  if (CoreModule[modupath]!=undefined) modupath=CoreModule[modupath];
+  if (modupath=='') return undefined;
+  if (BundleModuleCode[modupath]) BundleModuleCode[modupath](module,exports,global,process);
+  else if (BundleObjectCode[modupath]) BundleObjectCode[modupath](module,exports,global,process);
+  else { try { file=_search(0,modupath); module = require(file)}
+  catch (e) { var more="";
+   if ((e.name==="SyntaxError"||e.name==="TypeError") && file) {
+      var src=Fs.readFileSync(file,"utf8");
+      var Esprima = Require("parser/esprima");
+      try {
+        var ast = Esprima.parse(src, { tolerant: true, loc:true });
+        if (ast.errors && ast.errors.length>0) more = ", "+ast.errors[0];
+      } catch (e) {
+        if (e.lineNumber) more = ", in line "+e.lineNumber;
+      }
+   }
+   console.log("Require import of "+modupath+" ("+file+") failed: "+e+more);
+   // if (e.stack) console.log(e.stack);
+   throw e; // process.exit(-1);
+  }}
+  BundleModules[modupath]=module.exports||module;
+  return module.exports||module;};
+FilesEmbedded=global.FilesEmbedded = {};
+FileEmbedd=global.FileEmbedd = function (path,format) {};
+FileEmbedded=global.FileEmbedded = function (path,format) {return FilesEmbedded[path](format);};
+global.TARGET='node';
+
+BundleModuleCode['com/io']=function (module,exports,global,process){
+/**
+ **      ==================================
+ **      OOOO   OOOO OOOO  O      O   OOOO
+ **      O   O  O    O     O     O O  O   O
+ **      O   O  O    O     O     O O  O   O
+ **      OOOO   OOOO OOOO  O     OOO  OOOO
+ **      O   O     O    O  O    O   O O   O
+ **      O   O     O    O  O    O   O O   O
+ **      OOOO   OOOO OOOO  OOOO O   O OOOO
+ **      ==================================
+ **      BSSLAB, Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR.
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2020 BSSLAB
+ **    $CREATED:     sbosse on 3/28/15.
+ **    $VERSION:     1.7.1X
+ **
+ **    $INFO:
+ *
+ * This module encapsulates all IO operations (except networking) supporting
+ * node.js applications.
+ *
+ **    $ENDOFINFO
+ */
+
+if (global.TARGET=='node')  { 
+
+ /*
+  ************
+  ** Node.js
+  ************
+  */
+ var util = require('util');
+ var GetEnv = Require('os/getenv');
+ var Base64 = Require('os/base64');
+ var Fs = require('fs');
+ var os = require('os');
+ var child = require('child_process');
+
+ var stderr_fun = function (str) { process.stderr.write(str); };
+ var stdout_fun = function (str) { process.stdout.write(str); };
+
+ /*
+  ** node.js specific
+  */
+
+ var tracefile = undefined;
+ var tracing = true;
+
+ /**
+ * Open a module and append all exported properties to the current global object.
+ * (top-level scope)
+ */
+ global.open = function(name,as) {
+   var module = Require(name);
+   for (var p in module) {
+     global[p] = module[p];
+   };
+   if (as) global[as]=module;
+ }
+
+/*
+ ** node.js
+ */
+var io = {
+    checkOptions : function(options,defaultOptions) {
+      return Object.assign({}, defaultOptions||{}, options) },
+      
+    checkOption : function (option,defaultOption) { 
+      return option==undefined? defaultOption:option },
+
+    config: {
+        columns:undefined,
+        rows:undefined
+    },
+    /**************
+     ** FILE IO
+     ***************/
+    /**
+     *
+     * @param fd
+     */
+    close: function (fd) {
+        Fs.closeSync(fd);
+    },
+    /**
+     *
+     * @param path
+     */
+    exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /**
+     *
+     * @param path
+     */
+    file_exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /** Search a file by iterating global PATH variable.
+     *
+     * @param name  File name or partial (relative) path
+     */
+    file_search: function (name) {
+        // Expecting global PATH variable !?
+        if (this.file_exists(name)) return name; 
+        else if (typeof PATH !== 'undefined') {
+          for (var p in PATH) {
+            if (this.file_exists(PATH[p]+'/'+name)) return (PATH[p]+'/'+name);
+          }
+          return undefined;
+        } else return undefined;
+    },
+    /**
+     *
+     * @param path
+     * @returns {number}
+     */
+    file_size: function (path) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            return stat.size;
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param timekind a c m
+     * @returns {number}
+     */
+    file_time: function (path,timekind) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            switch (timekind) {
+                case 'a': return stat.atime.getTime()/1000;
+                case 'c': return stat.ctime.getTime()/1000;
+                case 'm': return stat.mtime.getTime()/1000;
+                default: return stat.mtime.getTime()/1000;
+            }
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param mode
+     * @returns {*}
+     */
+    open: function (path, mode) {
+        return Fs.openSync(path, mode);
+    },
+    /**
+     *
+     * @param fd
+     * @param len
+     * @param foff
+     */
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    /**
+     *
+     * @param path
+     * @returns {string|undefined}
+     */
+    read_file: function (path) {
+        try {
+            return Fs.readFileSync(path,'utf8');
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @returns {*}
+     */
+    read_file_bin: function (path) {
+        try {
+            return Fs.readFileSync(path);
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param fd
+     */
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {number}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return Fs.readSync(fd, buf, boff, len, foff);
+    },
+    /**
+     *
+     * @param fd
+     */
+    sync: function (fd) {
+        Fs.fsyncSync(fd);
+    },
+    
+    time: function () {
+      return Date.now()
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {number}
+     */
+    write: function (fd, data, foff) {
+        return Fs.writeSync(fd, data, foff);
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {number}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return Fs.writeSync(fd, buf, bpos, blen, foff);
+    },
+    /**
+     *
+     * @param path
+     * @param {string} buf
+     */
+    write_file: function (path,str) {
+        try {
+            Fs.writeFileSync(path, str, 'utf8');
+            return str.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @param buf
+     * @returns {*}
+     */
+    write_file_bin: function (path,buf) {
+        try {
+            Fs.writeFileSync(path, buf, 'binary');
+            return buf.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param fd
+     * @param {string} str
+     * @returns {number}
+     */
+    write_line: function (fd, str) {
+        return Fs.writeSync(fd, str+NL);
+    },
+
+    /****************
+     ** CONSOLE IO
+     ****************/
+    /**
+     *
+     * @param msg
+     */
+    debug: function (msg) {
+        console.error('Debug: ' + msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    err: function (msg) {
+        console.error('Error: ' + msg);
+        throw Error(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    fail: function (msg) {
+        console.error('Fatal Error: ' + msg);
+        process.exit(0);
+    },
+    /**
+     *
+     * @param obj
+     */
+    inspect: function (obj,depth) {return util.inspect(obj,{showHidden: false, 
+                                                            depth: depth?depth:2})},
+
+    /**
+     * 
+     */
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (!e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        if (where==undefined) this.out(e);
+        else this.out(where+': '+e);
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+     /**
+     *
+     * @param e
+     * @param where
+     */
+    sprintstack: function (e) {
+        var str='';
+        if (e==_ || !e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .replace(/^Object.eval\s*\(/gm, '')
+            .split('\n');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                if (str!='') str += '\n';
+                str += '  at '+line;
+            }
+        }
+        return str;
+    },
+   /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    out: function (msg) {
+        console.warn(msg)
+    },
+    /**
+     *
+     * @param msg
+     */
+    warn: function (msg) {
+        console.warn('Warning: ' + msg);
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+    /**
+     *
+     * @param msg
+     */
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            Fs.writeSync(tracefile, '[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        tracefile = Fs.openSync(path, 'w+');
+        if (tracefile != undefined) this.tracing = false;
+    },
+
+    /**************
+     ** Process control
+     ***************/
+    exit: function (n) {
+        process.exit(n);
+    },
+    /**
+     *
+     * @returns {*} RSS HEAP in kBytes {data,heap}
+     */
+    mem: function () {
+        var mem = process.memoryUsage();
+        return {data:(mem.rss/1024)|0,heap:(mem.heapUsed/1024)|0};
+    },
+    /****************************
+     ** Environment and Arguments
+     ****************************/
+    getenv: function (name, def) {
+        return GetEnv(name, def);
+    },
+    workdir: function () {
+        return this.getenv('PWD','');
+    },
+
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return process.argv;
+    },
+
+    sleep: function(delay) {
+      var start = new Date().getTime();
+      while (new Date().getTime() < start + delay);
+    },
+    
+    /**
+     *  Process management
+     */
+    fork: child.fork,
+    exec: child.exec,
+    spawn: child.spawn,
+
+    /**
+     * OS
+     */
+    hostname: os.hostname
+
+  };
+} else {
+ /*
+  ************
+  ** Browser
+  ************
+  */
+  var tracing = true;
+  var stderr_fun = function (str) { console.log(str); };
+  var stdout_fun = function (str) { console.log(str); };
+  var args=[];
+
+  /**
+  * Open a module and append all exported properties to the current global object.
+  * (top-level scope)
+  */
+  global.open = function(name,as) {
+    var module = Require(name);
+    for (var p in module) {
+      global[p] = module[p];
+    };
+    if (as) global[as]=module;
+  }
+  
+  var io = {
+    /*
+    ************
+    ** Browser
+    ************
+    */
+    /*
+     ** FILE IO
+     * TODO WebStorage
+     */
+    close: function (fd) {
+        return;
+    },
+    exists: function (path) {
+        return false;
+    },
+    open: function (path, mode) {
+        var fd = Fs.openSync(path, mode);
+        return fd;
+    },
+
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    read_file: function (path) {
+        return '';
+    },
+
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {*}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return -1;
+    },
+    sync: function (fd) {
+        return;
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {*}
+     */
+    write: function (fd, data, foff) {
+        return -1;
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {*}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return -1;
+    },
+
+    /*
+     ** CONSOLE IO
+     */
+    debug: function (msg) {
+        stderr_fun('Debug: ' + msg);
+    },
+    err: function (msg) {
+        stderr_fun('Error: ' + msg);
+        throw Error(msg);
+    },
+    fail: function (msg) {
+        stderr_fun('Fatal Error: ' + msg);
+    },
+    inspect: function (obj) {
+        return;
+    },
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        stderr_fun('Stack Trace');
+        stderr_fun('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                stderr_fun(line);
+            }
+        }
+        stderr_fun('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (where==undefined) stderr_fun(e);
+        else stderr_fun(where+': '+e);
+    },
+    /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    out: function (msg) {
+        stdout_fun(msg)
+    },
+    warn: function (msg) {
+        stderr_fun('Warning: ' + msg);
+    },
+
+
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            this.log('[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        return undefined;
+    },
+
+    exit: function (n) {
+        return;
+    },
+    getenv: function (name, def) {
+        return def;
+    },
+    workdir: function () {
+        return '';
+    },
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return args;
+    },
+    set_args: function (argv) {
+        args=argv;
+    },
+    inspect: function (o) {return '?'}
+  };
+}  
+module.exports = io;
+};
+BundleModuleCode['os/getenv']=function (module,exports,global,process){
+var util = require("util");
+var url = require("url");
+
+var fallbacksDisabled = false;
+
+function _value(varName, fallback) {
+  var value = process.env[varName];
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new Error('GetEnv.Nonexistent: ' + varName + ' does not exist ' +
+                      'and no fallback value provided.');
+    }
+    if (fallbacksDisabled) {
+      throw new Error('GetEnv.DisabledFallbacks: ' + varName + ' relying on fallback ' + 
+                      'when fallbacks have been disabled');
+    }
+    return '' + fallback;
+  }
+  return value;
+}
+
+var convert = {
+  string: function(value) {
+    return '' + value;
+  },
+  int: function(value) {
+    var isInt = value.match(/^-?\d+$/);
+    if (!isInt) {
+      throw new Error('GetEnv.NoInteger: ' + value + ' is not an integer.');
+    }
+
+    return +value;
+  },
+  float: function(value) {
+    var isInfinity = (+value === Infinity || +value === -Infinity);
+    if (isInfinity) {
+      throw new Error('GetEnv.Infinity: ' + value + ' is set to +/-Infinity.');
+    }
+
+    var isFloat = !(isNaN(value) || value === '');
+    if (!isFloat) {
+      throw new Error('GetEnv.NoFloat: ' + value + ' is not a number.');
+    }
+
+    return +value;
+  },
+  bool: function(value) {
+    var isBool = (value === 'true' || value === 'false');
+    if (!isBool) {
+      throw new Error('GetEnv.NoBoolean: ' + value + ' is not a boolean.');
+    }
+
+    return (value === 'true');
+  },
+  url: url.parse
+};
+
+function converter(type) {
+  return function(varName, fallback) {
+    if(typeof varName == 'string') { // default
+      var value = _value(varName, fallback);
+      return convert[type](value);
+    } else { // multibert!
+      return getenv.multi(varName);
+    }
+  };
+};
+
+var getenv = converter('string');
+
+Object.keys(convert).forEach(function(type) {
+  getenv[type] = converter(type);
+});
+
+getenv.array = function array(varName, type, fallback) {
+  type = type || 'string';
+  if (Object.keys(convert).indexOf(type) === -1) {
+    throw new Error('GetEnv.ArrayUndefinedType: Unknown array type ' + type);
+  }
+  var value = _value(varName, fallback);
+  return value.split(/\s*,\s*/).map(convert[type]);
+};
+
+getenv.multi = function multi(spec) {
+  var key, value;
+  var result = {};
+  for(var key in spec) {
+    var value = spec[key];
+    if(util.isArray(value)) { // default value & typecast
+      switch(value.length) {
+        case 1: // no default value
+        case 2: // no type casting
+          result[key] = getenv(value[0], value[1]); // dirty, when case 1: value[1] is undefined
+        break;
+        case 3: // with typecast
+          result[key] = getenv[value[2]](value[0], value[1]);
+          break;
+        default: // wtf?
+          throw('getenv.multi(): invalid spec');
+          break;
+      }
+    } else { // value or throw
+      result[key] = getenv(value);
+    }
+  }
+  return result;
+};
+
+getenv.disableFallbacks = function() {
+  fallbacksDisabled = true;
+};
+
+getenv.enableFallbacks = function() {
+  fallbacksDisabled = false;
+};
+
+module.exports = getenv;
+};
+BundleModuleCode['os/base64']=function (module,exports,global,process){
+var keyStr = "ABCDEFGHIJKLMNOP" +
+               "QRSTUVWXYZabcdef" +
+               "ghijklmnopqrstuv" +
+               "wxyz0123456789+/" +
+               "=";
+var Buffer=Require('buffer').Buffer;
+var Base64 = {
+  encode: function (input) {
+     input = escape(input);
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     do {
+        chr1 = input.charCodeAt(i++);
+        chr2 = input.charCodeAt(i++);
+        chr3 = input.charCodeAt(i++);
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < input.length);
+
+     return output;
+  },
+
+  encodeBuf: function (input) {
+     var output = "";
+     var NaN = output.charCodeAt(2);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var len = input.length;
+     do {
+        chr1 = input.readUInt8(i++);
+        chr2 = (i<len)?input.readUInt8(i++):NaN;
+        chr3 = (i<len)?input.readUInt8(i++):NaN;
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < len);
+
+     return output;
+  },
+
+  decode: function (input) {
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output = output + String.fromCharCode(chr1);
+
+        if (enc3 != 64) {
+           output = output + String.fromCharCode(chr2);
+        }
+        if (enc4 != 64) {
+           output = output + String.fromCharCode(chr3);
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return unescape(output);
+  },
+  decodeBuf: function (input) {
+     var len = input.length;
+     var buf = new Buffer(len);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var buflen = 0;
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+     buf.fill(0);
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        buf.writeUInt8(chr1,buflen);
+        buflen++;
+        if (enc3 != 64) {
+          buf.writeUInt8(chr2,buflen);
+          buflen++;
+        }
+        if (enc4 != 64) {
+            buf.writeUInt8(chr3,buflen);
+            buflen++;
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return buf.slice(0,buflen);
+  }
+
+};
+
+
+module.exports = Base64;
+};
+BundleModuleCode['com/path']=function (module,exports,global,process){
+var process = process || {};
+(function () {
+  "use strict";
+
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+var isWindows = process.platform === 'win32';
+var util = Require('util');
+
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+
+if (isWindows) {
+  // Regex to split a windows path into three parts: [*, device, slash,
+  // tail] windows-only
+  var splitDeviceRe =
+      /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
+
+  // Regex to split the tail part of the above into [*, dir, basename, ext]
+  var splitTailRe =
+      /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
+
+  // Function to split a filename into [root, dir, basename, ext]
+  // windows version
+  var splitPath = function(filename) {
+    // Separate device+slash from tail
+    var result = splitDeviceRe.exec(filename),
+        device = (result[1] || '') + (result[2] || ''),
+        tail = result[3] || '';
+    // Split the tail into dir, basename and extension
+    var result2 = splitTailRe.exec(tail),
+        dir = result2[1],
+        basename = result2[2],
+        ext = result2[3];
+    return [device, dir, basename, ext];
+  };
+
+  var normalizeUNCRoot = function(device) {
+    return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
+  };
+
+  // path.resolve([from ...], to)
+  // windows version
+  exports.resolve = function() {
+    var resolvedDevice = '',
+        resolvedTail = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1; i--) {
+      var path;
+      if (i >= 0) {
+        path = arguments[i];
+      } else if (!resolvedDevice) {
+        path = process.cwd();
+      } else {
+        // Windows has the concept of drive-specific current working
+        // directories. If we've resolved a drive letter but not yet an
+        // absolute path, get cwd for that drive. We're sure the device is not
+        // an unc path at this points, because unc paths are always absolute.
+        path = process.env['=' + resolvedDevice];
+        // Verify that a drive-local cwd was found and that it actually points
+        // to our drive. If not, default to the drive's root.
+        if (!path || path.substr(0, 3).toLowerCase() !==
+            resolvedDevice.toLowerCase() + '\\') {
+          path = resolvedDevice + '\\';
+        }
+      }
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      var result = splitDeviceRe.exec(path),
+          device = result[1] || '',
+          isUnc = device && device.charAt(1) !== ':',
+          isAbsolute = exports.isAbsolute(path),
+          tail = result[3];
+
+      if (device &&
+          resolvedDevice &&
+          device.toLowerCase() !== resolvedDevice.toLowerCase()) {
+        // This path points to another device so it is not applicable
+        continue;
+      }
+
+      if (!resolvedDevice) {
+        resolvedDevice = device;
+      }
+      if (!resolvedAbsolute) {
+        resolvedTail = tail + '\\' + resolvedTail;
+        resolvedAbsolute = isAbsolute;
+      }
+
+      if (resolvedDevice && resolvedAbsolute) {
+        break;
+      }
+    }
+
+    // Convert slashes to backslashes when `resolvedDevice` points to an UNC
+    // root. Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      resolvedDevice = normalizeUNCRoot(resolvedDevice);
+    }
+
+    // At this point the path should be resolved to a full absolute path,
+    // but handle relative paths to be safe (might happen when process.cwd()
+    // fails)
+
+    // Normalize the tail path
+
+    function f(p) {
+      return !!p;
+    }
+
+    resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/).filter(f),
+                                  !resolvedAbsolute).join('\\');
+
+    return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
+           '.';
+  };
+
+  // windows version
+  exports.normalize = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = device && device.charAt(1) !== ':',
+        isAbsolute = exports.isAbsolute(path),
+        tail = result[3],
+        trailingSlash = /[\\\/]$/.test(tail);
+
+    // If device is a drive letter, we'll normalize to lower case.
+    if (device && device.charAt(1) === ':') {
+      device = device[0].toLowerCase() + device.substr(1);
+    }
+
+    // Normalize the tail path
+    tail = normalizeArray(tail.split(/[\\\/]+/).filter(function(p) {
+      return !!p;
+    }), !isAbsolute).join('\\');
+
+    if (!tail && !isAbsolute) {
+      tail = '.';
+    }
+    if (tail && trailingSlash) {
+      tail += '\\';
+    }
+
+    // Convert slashes to backslashes when `device` points to an UNC root.
+    // Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      device = normalizeUNCRoot(device);
+    }
+
+    return device + (isAbsolute ? '\\' : '') + tail;
+  };
+
+  // windows version
+  exports.isAbsolute = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = !!device && device.charAt(1) !== ':';
+    // UNC paths are always absolute
+    return !!result[2] || isUnc;
+  };
+
+  // windows version
+  exports.join = function() {
+    function f(p) {
+      if (!util.isString(p)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      return p;
+    }
+
+    var paths = Array.prototype.filter.call(arguments, f);
+    var joined = paths.join('\\');
+
+    // Make sure that the joined path doesn't start with two slashes, because
+    // normalize() will mistake it for an UNC path then.
+    //
+    // This step is skipped when it is very clear that the user actually
+    // intended to point at an UNC path. This is assumed when the first
+    // non-empty string arguments starts with exactly two slashes followed by
+    // at least one more non-slash character.
+    //
+    // Note that for normalize() to treat a path as an UNC path it needs to
+    // have at least 2 components, so we don't filter for that here.
+    // This means that the user can use join to construct UNC paths from
+    // a server name and a share name; for example:
+    //   path.join('//server', 'share') -> '\\\\server\\share\')
+    if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
+      joined = joined.replace(/^[\\\/]{2,}/, '\\');
+    }
+
+    return exports.normalize(joined);
+  };
+
+  // path.relative(from, to)
+  // it will solve the relative path from 'from' to 'to', for instance:
+  // from = 'C:\\orandea\\test\\aaa'
+  // to = 'C:\\orandea\\impl\\bbb'
+  // The output of the function should be: '..\\..\\impl\\bbb'
+  // windows version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from);
+    to = exports.resolve(to);
+
+    // windows is not case sensitive
+    var lowerFrom = from.toLowerCase();
+    var lowerTo = to.toLowerCase();
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var toParts = trim(to.split('\\'));
+
+    var lowerFromParts = trim(lowerFrom.split('\\'));
+    var lowerToParts = trim(lowerTo.split('\\'));
+
+    var length = Math.min(lowerFromParts.length, lowerToParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (lowerFromParts[i] !== lowerToParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    if (samePartsLength == 0) {
+      return to;
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < lowerFromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('\\');
+  };
+
+  exports.sep = '\\';
+  exports.delimiter = ';';
+
+} else /* posix */ {
+
+  // Split a filename into [root, dir, basename, ext], unix version
+  // 'root' is just a slash, or nothing.
+  var splitPathRe =
+      /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+  var splitPath = function(filename) {
+    return splitPathRe.exec(filename).slice(1);
+  };
+
+  // path.resolve([from ...], to)
+  // posix version
+  exports.resolve = function() {
+    var resolvedPath = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+      var path = (i >= 0) ? arguments[i] : process.cwd();
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      resolvedPath = path + '/' + resolvedPath;
+      resolvedAbsolute = path.charAt(0) === '/';
+    }
+
+    // At this point the path should be resolved to a full absolute path, but
+    // handle relative paths to be safe (might happen when process.cwd() fails)
+
+    // Normalize the path
+    resolvedPath = normalizeArray(resolvedPath.split('/').filter(function(p) {
+      return !!p;
+    }), !resolvedAbsolute).join('/');
+
+    return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+  };
+
+  // path.normalize(path)
+  // posix version
+  exports.normalize = function(path) {
+    var isAbsolute = exports.isAbsolute(path),
+        trailingSlash = path[path.length - 1] === '/',
+        segments = path.split('/'),
+        nonEmptySegments = [];
+
+    // Normalize the path
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i]) {
+        nonEmptySegments.push(segments[i]);
+      }
+    }
+    path = normalizeArray(nonEmptySegments, !isAbsolute).join('/');
+
+    if (!path && !isAbsolute) {
+      path = '.';
+    }
+    if (path && trailingSlash) {
+      path += '/';
+    }
+
+    return (isAbsolute ? '/' : '') + path;
+  };
+
+  // posix version
+  exports.isAbsolute = function(path) {
+    return path.charAt(0) === '/';
+  };
+
+  // posix version
+  exports.join = function() {
+    var path = '';
+    for (var i = 0; i < arguments.length; i++) {
+      var segment = arguments[i];
+      if (!util.isString(segment)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      if (segment) {
+        if (!path) {
+          path += segment;
+        } else {
+          path += '/' + segment;
+        }
+      }
+    }
+    return exports.normalize(path);
+  };
+
+
+  // path.relative(from, to)
+  // posix version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from).substr(1);
+    to = exports.resolve(to).substr(1);
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var fromParts = trim(from.split('/'));
+    var toParts = trim(to.split('/'));
+
+    var length = Math.min(fromParts.length, toParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (fromParts[i] !== toParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < fromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('/');
+  };
+
+  exports.sep = '/';
+  exports.delimiter = ':';
+}
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+
+exports.exists = util.deprecate(function(path, callback) {
+  require('fs').exists(path, callback);
+}, 'path.exists is now called `fs.exists`.');
+
+
+exports.existsSync = util.deprecate(function(path) {
+  return require('fs').existsSync(path);
+}, 'path.existsSync is now called `fs.existsSync`.');
+
+
+if (isWindows) {
+  exports._makeLong = function(path) {
+    // Note: this will *probably* throw somewhere.
+    if (!util.isString(path))
+      return path;
+
+    if (!path) {
+      return '';
+    }
+
+    var resolvedPath = exports.resolve(path);
+
+    if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
+      // path is local filesystem path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\' + resolvedPath;
+    } else if (/^\\\\[^?.]/.test(resolvedPath)) {
+      // path is network UNC path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\UNC\\' + resolvedPath.substring(2);
+    }
+
+    return path;
+  };
+} else {
+  exports._makeLong = function(path) {
+    return path;
+  };
+}
+}());
+};
+BundleModuleCode['com/sprintf']=function (module,exports,global,process){
+(function(window) {
+    var re = {
+        not_string: /[^s]/,
+        number: /[diefg]/,
+        json: /[j]/,
+        not_json: /[^j]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function(parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && re.not_json.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                    break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                    break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                    break
+                    case "j":
+                        arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                    break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                    break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                    break
+                    case "g":
+                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
+                    break
+                    case "o":
+                        arg = arg.toString(8)
+                    break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                    break
+                    case "u":
+                        arg = arg >>> 0
+                    break
+                    case "x":
+                        arg = arg.toString(16)
+                    break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                    break
+                }
+                if (re.json.test(match[8])) {
+                    output[output.length] = arg
+                }
+                else {
+                    if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                        sign = is_positive ? "+" : "-"
+                        arg = arg.toString().replace(re.sign, "")
+                    }
+                    else {
+                        sign = ""
+                    }
+                    pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                    pad_length = match[6] - (sign + arg).length
+                    pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                    output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+                }
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function(fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            try {_fmt = _fmt.substring(match[0].length)} catch (e) {throw new SyntaxError("[sprintf] unexpected fromat")}
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function(fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+     */
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function() {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+})(typeof window === "undefined" ? this : window);
+};
+BundleModuleCode['plugins/cap/cap.lib.js']=function (module,exports,global,process){
+var CapLib = Require("plugins/cap/caplib")
+
+module.exports = {
+  Lib : CapLib
+}
+
+};
+BundleModuleCode['plugins/cap/caplib']=function (module,exports,global,process){
+function checkAttributes (obj,checkpoint,attributes) {
+  for (var i in attributes) {
+    var k = attributes[i];
+     if (obj[k] == undefined) throw ('Attribute '+k+' missing in '+checkpoint)
+  }
+}
+
+function copy(o) {
+  var o2
+  if (typeof o == 'object') {
+    if (o instanceof Array) {
+      o2=o.map(copy)
+    } else {
+      o2={}
+      for(var k in o) o2[k]=copy(o[k])
+    }
+    return o2
+  } else return o;
+}
+function copyAttributes(o,attributes,without) {
+  var o2
+  if (typeof o == 'object') {
+    if (o instanceof Array) {
+      o2=o.map(function (e) { return copyAttributes(e,attributes,without) })
+    } else {
+      o2={}
+      for(var k in o) {
+        if (attributes && attributes.indexOf(k)==-1) continue;
+        if (without && without.indexOf(k)!=-1) continue;
+        o2[k]=copyAttributes(o[k],attributes,without)
+      }
+    }
+    return o2
+  } else return o;
+}
+
+var version = "0.1.0"
+//////////////// CELL /////////////
+
+// Creates a parametrized cell class constructor (model)
+// that creates specialized cells (options), e.g. monitor cells 
+/*
+typeof model  = {
+  rows,
+  columns,
+  cell
+}
+*/
+
+function Cell(model) {
+  if (!model) throw("Cell: Model missing")
+  checkAttributes(model.cell,'Cell.model.cell',['private','shared','public','activity'])
+  /*
+    typeof options = {
+      shared : bufferobject {}
+      public : sharedmatrix,
+      monitor?: boolean, // virtual cell
+      
+    }
+  */
+  function cell (x,y,options) {
+    var self=this;
+    options=options||{}
+    if (!(this instanceof cell)) return new cell(x,y,options)
+    // always absolute grid position
+    this.x=x
+    this.y=y
+    this.model=model;
+
+    if (options.monitor) {
+      /* A virtual monitor cell (mirror) with shared memory buffer objects at partition boundaries */
+      this.__monitor=true;        
+    }
+    if (options.shared) {
+      var index = options.shared.index(options.shared,y,x);
+      // print('slice',x,y,index)
+      this.__shared=options.shared.data[index];
+      // print('shared slice',x,y)
+    }
+    if (options.public) {
+      this.__public=options.public;
+    }
+    // 1. Create private variables
+    for (var k in model.cell.private) {
+      this[k]=copy(model.cell.private[k]);
+    }
+    // 2. Create shared variables 
+    for (var k in model.cell.shared) {
+      if (this.__shared) {
+        // SM BufferObjects
+        (function (k) { Object.defineProperty(self, k, {
+          get() {
+            return self.__shared[k];
+          },  
+          set(value) {
+            self.__shared[k]=value
+          }
+        })})(k);
+      } else {
+        this[k]=copy(model.cell.shared[k]);
+      }
+    }
+    // 3. Public state variables are always stored in a shared matrix (only scalar datatypes)
+    for (var k in model.cell.public) {
+      (function (k) { Object.defineProperty(self, k, {
+        get() {
+          return self.__public[k].get(self.y,self.x);
+        },  
+        set(value) {
+          self.__public[k].set(self.y,self.x,value)
+        }
+      })})(k);
+    }
+    if (model.parameter) {
+      for (k in model.parameter) {
+        this[k]=model.parameter[k];
+      }      
+    }
+  }
+  var ALU = {
+    '==' : function (a,b) { return a == b },
+    '===' : function (a,b) { return a === b },
+    '<' : function (a,b) { return a < b },
+    '<=' : function (a,b) { return a <= b },
+    '>' : function (a,b) { return a > b },
+    '>=' : function (a,b) { return a >= b },
+  }
+  cell.prototype.ask = function (cells, op, what, value, rel) {
+    if (typeof rel == 'string') rel=ALU[rel];
+    switch (op) { 
+      case 'count':
+        var count=0
+        if (!rel) for (k in cells) {
+          if (cells[k] && cells[k][what] === value) count++;
+        } else for (k in cells) {
+          if (cells[k] && rel(cells[k][what],value)) count++;
+        }
+        return count;
+      case 'filter':
+        // filter cells with condition what (rel) value
+        var selected=[];
+        if (!rel) for (k in cells) {
+          if (cells[k] && (cells[k][what] === value)) selected.push(cells[k]);
+        } else for (k in cells) {
+          if (cells[k] && rel(cells[k][what],value)) selected.push(cells[k]);
+        } 
+        return selected
+      case 'random':
+        // select a neighbor randomly with or w/o a condition what == value
+        var selected=[];
+        if (what && !rel) for (k in cells) {
+          if (cells[k] && (cells[k][what] === value)) selected.push(k);
+        } else if (what && rel) for (k in cells) {
+          if (cells[k] && rel(cells[k][what], value)) selected.push(k);
+        } else for (k in cells) {
+          if (cells[k]) selected.push(k);
+        }
+        selected=Math.random.select(selected);
+        if (selected) return cells[selected];
+      // TODO
+    }
+  }
+  cell.prototype.run = function (stage) {
+    if (model.cell[stage]) model.cell[stage].call(this,this.x,this.y,model);
+  }
+  return cell
+}
+
+
+////////////////// SIMULATOR1 ///////////////////
+
+// Creates a simulation object (Simu: internal, worker, one partition, SimuPar: external, main)
+
+/*
+typeof options = {
+  model,    // global model
+  columns,  // partition size!
+  rows,
+  prow,pcol, // partition index
+  offsetX,  // world column offset
+  offsetY,
+  partitions : { prow,pcol,x0,y0,x1,y1 : number, slices:{left,right,top,bottom sbox {}},
+  public : bohandler {} ,
+}
+
+type sbox = { x0,y0,x1,y1,width,height,data: bohandler {}}
+*/
+function Simu1 (options) {
+  var model = options.model, m=model, self={};
+  self.verbose=options.verbose
+  function log(msg) {
+    print('[SIMU1 '+options.id+'('+options.pcol+','+options.prow+') @'+Date.now()+'] '+msg);
+  }
+  if (self.verbose) log('Simu1: Creating partition..');
+
+  checkAttributes(options,'Simu1.options',['model','partitions','rows','columns',
+                                           'prow','pcol','offsetX','offsetY','public'])
+
+  var cells = Math.Matrix(options.rows,options.columns).data;
+  
+  self.model = model;
+  self.partition = options.partitions[options.prow][options.pcol];
+  self.partitions = options.partitions;
+  self.rtable = options.rtable;
+  self.steps = 0;
+  self.events = {};
+  self.cells = cells;
+  self.cellNeighbors = Math.Matrix(options.rows,options.columns).data;
+  if (self.verbose) log('Creating master cell constructor ..');
+  var cell = new Cell(model);
+  // 0.0 Create worker-worker semaphore
+  self.semaphore=BufferSegment.SemaType.deserialize(options.semaphore)
+  self.barrier=BufferSegment.BarrierType.deserialize(options.barrier)
+  
+  // 0. Deserialize sliceCells and public shared matrix
+  self.public = {}
+
+  if (self.verbose) log('Mapping public state matrix ..');
+  for (var k in options.public) {
+    self.public[k]=BufferSegment.MatrixType.deserialize(options.public[k]);
+  }
+  if (self.verbose) log('Mapping partitions shared state slice arrays ..');
+  self.partitions.forEach(function (row,rowi) {
+    row.forEach(function (p,coli) {
+        // print(rowi,coli,Object.keys(p))
+        for (var k in p.slices) {
+          p.slices[k].data=BufferSegment.ArrayType.deserialize(p.slices[k].data);
+        }      
+    });
+  }); 
+  // 1. Compute neighbourhood record
+  if (m.radius==1 && m.neighbors == 4) {
+    // Neumann
+    self.neighbors = {
+      left    : [-1,0],
+      right	  : [1,0],
+      bottom  : [0,1],
+      top 	  : [0,-1]
+    }
+  } else if (m.radius==1 &&  m.neighbors == 8) {
+    // Moore
+    self.neighbors = {
+      left        : [-1,0],
+      right       : [1,0],
+      bottom      : [0,1],
+      top 	      : [0,-1],
+      topleft     : [-1,-1],
+      topright    : [1,-1],
+      bottomleft  : [-1,1],
+      bottomright : [1,1]
+    }
+  } else if (m.radius==2 && m.neighbors == 4) {
+    // Neumann2
+    self.neighbors = {
+      left    : [-1,0],
+      right	  : [1,0],
+      bottom  : [0,1],
+      top 	  : [0,-1],
+      left2   : [-2,0],
+      right2  : [2,0],
+      bottom2 : [0,2],
+      top2 	  : [0,-2]
+    }
+  } else if (m.radius==2 &&  m.neighbors == 8) {
+    // Moore
+    self.neighbors = {
+      left        : [-1,0],
+      right       : [1,0],
+      bottom      : [0,1],
+      top 	      : [0,-1],
+      topleft     : [-1,-1],
+      topright    : [1,-1],
+      bottomleft  : [-1,1],
+      bottomright : [1,1],
+      left2        : [-1,0],
+      right2       : [1,0],
+      bottom2      : [0,1],
+      top2 	       : [0,-1],
+      topleft2     : [-1,-1],
+      topright2    : [1,-1],
+      bottomleft2  : [-1,1],
+      bottomright2 : [1,1]
+
+    }
+  }
+  print('['+options.pcol+','+options.prow+'] Partition @ '+options.offsetX+','+options.offsetY)
+  function neighbors(row,col) {
+    var map={},r;
+    for (k in self.neighbors) {
+      var v = self.neighbors[k]
+      r=self.cells[row+v[1]];
+      if (r) map[k]=r[col+v[0]]; else map[k]=null;
+    }
+    return map
+  }
+  
+  function within (sbox,x,y) {
+    return x >= sbox.x0 && x <= sbox.x1 &&
+           y >= sbox.y0 && y <= sbox.y1
+  }
+  function testSlice (row,col) {
+    var rt = self.rtable;
+    for(var i in rt) {
+      var r = rt[i];
+      if (within(r,col,row)) {
+        var s=r.slice;
+        return self.partitions[s.prow][s.pcol].slices[s.slice];
+      }
+    }
+  }
+  // 2. Map in public state matrix and partition shared slice state array
+
+  log('Creating cells..');
+  // 3.1 Create partition active cells (x,y: absolute corrdinates)
+  var slice;
+  for (var row=0;row<options.rows;row++) {
+    for (var col=0;col<options.columns;col++) {
+      if (slice=testSlice(options.offsetY+row,options.offsetX+col)) {
+        // print('['+options.pcol+','+options.prow+'] monitor cell',col,row)
+        self.cells[row][col]=new cell(options.offsetX+col,options.offsetY+row, {shared:slice,public:self.public})
+      } else {
+        self.cells[row][col]=new cell(options.offsetX+col,options.offsetY+row, {public:self.public})
+      }
+    }
+  }
+  
+
+  // 3.2 Create virtual cells of neighboring partitions
+  if (!model.novirtual) {
+    log('Creating virtual monitor cells..');
+    if (self.partition.slices.left) {
+      for(var r=1;r<=m.radius;r++) 
+        for(var row=0;row<options.rows;row++) {
+          slice=testSlice(options.offsetY+row,options.offsetX-r);
+          self.cells[row][-r]=new cell(options.offsetX-r,options.offsetY+row, {monitor:true,shared:slice})
+        }
+    }
+    if (self.partition.slices.right) {
+      for(var r=1;r<=m.radius;r++) 
+        for(var row=0;row<options.rows;row++) {
+          if (self.cells[row] && self.cells[row][options.columns+r-1]) continue;
+          slice=testSlice(options.offsetY+row,options.offsetX+options.columns+r-1);
+          self.cells[row][options.columns+r-1]=new cell(options.offsetX+options.columns+r-1,options.offsetY+row, {monitor:true,shared:slice})
+        }
+    }
+    if (self.partition.slices.top) {
+      for(var r=1;r<=m.radius;r++) 
+        for(var col=0;col<options.columns;col++) {
+          if (self.cells[-r] && self.cells[-r][col]) continue;
+          if (!self.cells[-r]) self.cells[-r]=[]
+          slice=testSlice(options.offsetY-r,options.offsetX+col);
+          self.cells[-r][col]=new cell(options.offsetX+col,options.offsetY-r, {monitor:true,shared:slice})
+        }
+    }
+    if (self.partition.slices.bottom) {
+      for(var r=1;r<=m.radius;r++) 
+        for(var col=0;col<options.columns;col++) {
+          if (self.cells[options.rows+r-1] && self.cells[options.rows+r-1][col]) continue;
+          if (!self.cells[options.rows+r-1]) self.cells[options.rows+r-1]=[];
+          slice=testSlice(options.offsetY+options.rows+r-1,options.offsetX+col);
+          self.cells[options.rows+r-1][col]=new cell(options.offsetX+col,options.offsetY+options.rows+r-1, {monitor:true,shared:slice})
+        }
+    }
+    // diagonal extension
+    if (self.partition.slices.bottom && self.partition.slices.right) {
+      for(var row=options.rows;row<options.rows+m.radius;row++) 
+        for(var col=options.columns;col<options.columns+m.radius;col++) {
+          if (self.cells[row] && self.cells[row][col]) continue;
+          if (!self.cells[row]) self.cells[row]=[];
+          slice=testSlice(options.offsetY+row,options.offsetX+col);
+          self.cells[row][col]=new cell(options.offsetX+col,options.offsetY+row, {monitor:true,shared:slice})
+        }
+    }
+    if (self.partition.slices.top && self.partition.slices.left) {
+      for(var row=-1;row>=-m.radius;row--) 
+        for(var col=-1;col>=-m.radius;col--) {
+          if (self.cells[row] && self.cells[row][col]) continue;
+          if (!self.cells[row]) self.cells[row]=[];
+          slice=testSlice(options.offsetY+row,options.offsetX+col);
+          self.cells[row][col]=new cell(options.offsetX+col,options.offsetY+row, {monitor:true,shared:slice})
+        }
+    }
+    if (self.partition.slices.top && self.partition.slices.right) {
+      for(var row=-1;row>=-m.radius;row--) 
+        for(var col=options.columns;col<options.columns+m.radius;col++) {
+          if (self.cells[row] && self.cells[row][col]) continue;
+          if (!self.cells[row]) self.cells[row]=[];
+          slice=testSlice(options.offsetY+row,options.offsetX+col);
+          self.cells[row][col]=new cell(options.offsetX+col,options.offsetY+row, {monitor:true,shared:slice})
+        }
+    }
+    if (self.partition.slices.bottom && self.partition.slices.left) {
+      for(var row=options.rows;row<options.rows+m.radius;row++) 
+        for(var col=-1;col>=-m.radius;col--) {
+          if (self.cells[row] && self.cells[row][col]) continue;
+          if (!self.cells[row]) self.cells[row]=[];
+          slice=testSlice(options.offsetY+row,options.offsetX+col);
+          self.cells[row][col]=new cell(options.offsetX+col,options.offsetY+row, {monitor:true,shared:slice})
+        }
+    }
+  }
+  // 4. Create Neighbourhood Matrix
+  for (var row=0;row<options.rows;row++) {
+    for (var col=0;col<options.columns;col++) {
+      self.cellNeighbors[row][col]={}
+      for(var k in self.neighbors) {
+        var dxy = self.neighbors[k];
+        var neighbor = self.cells[row+dxy[1]] && self.cells[row+dxy[1]][col+dxy[0]];
+        self.cellNeighbors[row][col][k]=neighbor;
+      }
+      // attach neighbors object to cell
+      self.cells[row][col].neighbors=self.cellNeighbors[row][col];
+    }
+  }
+  self.log=log;
+  self.log('Done.');
+  
+  self.init = function () {
+    self.log('Init');
+    for (var row=0;row<options.rows;row++) {
+      for (var col=0;col<options.columns;col++) {
+        var cell = self.cells[row][col];
+        try { cell.run('init') } catch (e) { print(e); return 'init('+col+','+row+'): '+e.toString() }
+      }
+    }
+  }
+  self.run = function (steps) {
+    steps=steps||1;
+    if (self.verbose>1) self.log('Run ('+steps+')');
+    
+    for(var i=0;i<steps;i++) {
+      self.barrier.join()
+      for (var row=0;row<options.rows;row++) {
+        for (var col=0;col<options.columns;col++) {
+          var cell = self.cells[row][col], neighbors = self.cellNeighbors[row][col];
+          try { cell.run('before') } catch (e) { print(e); return 'before('+col+','+row+'): '+e.toString() }
+        }
+      }
+      self.barrier.join()
+      for (var row=0;row<options.rows;row++) {
+        for (var col=0;col<options.columns;col++) {
+          var cell = self.cells[row][col], neighbors = self.cellNeighbors[row][col];
+          try { cell.run('activity',neighbors) } catch (e) { print(e); return 'activity('+col+','+row+'): '+e.toString() }
+        }
+      }
+      self.barrier.join()
+      for (var row=0;row<options.rows;row++) {
+        for (var col=0;col<options.columns;col++) {
+          var cell = self.cells[row][col], neighbors = self.cellNeighbors[row][col];
+          try { cell.run('after') } catch (e) { print(e); return 'after('+col+','+row+'): '+e.toString() }
+        }
+      }
+    }
+    self.barrier.join()
+    if (self.verbose>0) self.log('Done. ('+steps+')');
+  }
+  return self
+}
+
+/////////////////// SIMUPAR ///////////////////
+
+function SimuPar (model,options) {
+  var self=this;
+  if (!(this instanceof SimuPar)) return new SimuPar(model,options);
+  options=options||{}
+  checkAttributes(model,'SimuPar.model',['rows','columns','partitions','cell','radius'])
+  checkAttributes(model.cell,'SimuPar.model.cell',['activity','private','shared','public'])
+  checkAttributes(model.cell.public,'SimuPar.model.cell.public',['color'])
+  this.options=options;
+  this.verbose=options.verbose||1
+  this.model=model;
+  this.id = Utils.uniqueID(4).toUpperCase();
+  // 1. Compute partition descriptor table
+  var numparts = model.partitions.sum(),
+      rowPN = model.partitions.length,
+      height1 = model.rows/rowPN,
+      slicesTotal = 0,
+      partitions = model.partitions.map(function (colPN,rowi) {
+        var width1 = model.columns / colPN, row=[];
+        for (var coli=0;coli<colPN;coli++) {
+          var bbox = {prow:rowi, pcol:coli, x0:coli*width1,y0:rowi*height1,x1:(coli+1)*width1-1,y1:(rowi+1)*height1-1}
+          bbox.width=width1; bbox.height=height1;
+          var sliceCells = {};
+          if (rowi<rowPN-1) // horizontal bottom slice
+            sliceCells.bottom={
+              size:model.radius*width1,
+              width:width1, height:model.radius,
+              x0:bbox.x0,x1:bbox.x1,y0:bbox.y1-model.radius+1,y1:bbox.y1,
+              index : function (sbox,row,col) {
+                return (sbox.y0-row)*sbox.width+(col-sbox.x0)
+              }
+            };
+          if (coli<colPN-1) // vertical right slice
+            sliceCells.right={
+              size:model.radius*height1,
+              width:model.radius, height:height1,
+              x0:bbox.x1-model.radius+1,x1:bbox.x1,y0:bbox.y0,y1:bbox.y1,
+              index : function (sbox,row,col) {
+                return (col-sbox.x0)*sbox.height+(row-sbox.y0)
+              }
+            };
+          if (coli>0) // vertical left slice
+            sliceCells.left={
+              size:model.radius*height1,
+              width:model.radius, height:height1,
+              x0:bbox.x0,x1:bbox.x0+model.radius-1,y0:bbox.y0,y1:bbox.y1,
+              index : function (sbox,row,col) {
+                return (col-sbox.x0)*sbox.height+(row-sbox.y0)
+              }
+            };              
+          if (rowi>0) // horizontal top slice
+            sliceCells.top={
+              size:model.radius*width1,
+              width:width1, height:model.radius,
+              x0:bbox.x0,x1:bbox.x1,y0:bbox.y0,y1:bbox.y0+model.radius-1,
+              index : function (sbox,row,col) {
+                return (sbox.y0-row)*sbox.width+(col-sbox.x0)
+              }
+            };
+          for (var p in sliceCells) slicesTotal += sliceCells[p].size;
+          bbox.slices=sliceCells;
+          row.push(bbox)
+        }
+        return row
+      })
+  // 2. Compute SM storage size
+  var s=0, S=0;
+  var cell = model.cell;
+  S += sizeOf(cell.public,true);
+  s += sizeOf(cell.shared,true);
+  S *= (model.rows*model.columns);
+  s *= slicesTotal;
+  var totalSMsize = S+s;
+  self.partitions=partitions;
+  self.numparts=numparts;
+  self.workers=[]
+  
+  // 3. Create shared variable buffer objects (cell.shared)
+  var size = s+S+1000, key='/shm1';
+  // 3.1. Create shared memory segment from shared buffer
+  self.log('Creating Shared Memory Segment '+key+' ('+size+')');
+  var sm=BufferSegment(size,{key:key});
+  sm.create();
+  self.sm=sm;
+  // 3.2. Create type interface library
+  var typesDef={}
+  typesDef.shared=BufferSegment.TypeIf(cell.shared);
+  typesDef.sharedSlice=['shared'];
+  typesDef.buffer=['char'];
+  for(var k in cell.public) {
+    typesDef['public-'+k]=BufferSegment.TypeIf(cell.public[k]);
+  }
+  sm.library(typesDef);
+
+  // Can only be used between workers!
+  self.semaphore = sm.object('Semaphore',0);
+  self.barrier = sm.object('Barrier',numparts);
+
+  // 3.3. Create slice arrays
+  partitions.forEach(function (row) {
+    row.forEach(function (part) {
+      for(var k in part.slices) {
+        var N=part.slices[k].size;
+        part.slices[k].data=sm.object('sharedSlice',N);
+      }
+    })
+  })
+  // 3.4. Create public variable matrix (one for each public variable, cell.public)
+  //      Each matrix spawns entire CA world
+  self.public = {}
+  for (var k in cell.public) {
+    var dt = 'Float32';
+    self.public[k]=sm.object('MatrixTA-'+dt,[model.rows,model.columns])
+  }
+  // 4. Create a region table to find slice areas
+  var rtable = []
+  partitions.forEach(function (row) {
+    row.forEach(function (part) {
+      for(var k in part.slices) {
+        var slice=part.slices[k];
+        rtable.push({x0:slice.x0,y0:slice.y0,x1:slice.x1,y1:slice.y1,
+                     slice:{prow:part.prow,pcol:part.pcol,slice:k}})
+      }
+    })
+  })
+  partitions.rtable=rtable;
+  Code.print('#'+numparts,partitions,s,S)
+}
+
+SimuPar.prototype.init = async function () {
+  for(var i in this.workers) {
+    Code.worker.run(this.workers[i],'this.siminstance.init(); send({status:"OK"});');
+  }
+  for(var i in this.workers) {
+    var status = await Code.worker.receive(this.workers[i]);
+  }
+}
+
+SimuPar.prototype.log = async function (msg) {
+  if (this.options.print)
+    this.options.print('[SIMUP '+this.id+' @'+Date.now()+'] '+msg); 
+  else print('[SIMUP '+this.id+' @'+Date-now()+'] '+msg); 
+}
+
+SimuPar.prototype.createWorker = async function () {
+  var self=this;
+  // Create worker
+  for(var i=0;i<this.numparts;i++) {
+    if (this.verbose) this.log('Starting worker '+i);
+    this.workers[i]=await Code.worker.create(this.workers[i],{
+    });  
+  }
+  for(var i=0;i<this.numparts;i++) {
+    await Code.worker.ready(this.workers[i]);  
+    if (this.verbose) this.log('Worker '+i+' is ready.');
+  }
+  // Load plugins..
+  if (typeof process == 'undefined' || (typeof process == 'object' && process.browser) ) {
+    for(var i=0;i<this.numparts;i++) {
+      if (this.verbose) this.log('Loading plugins [math.plugin] in worker '+i);
+      Code.worker.run(this.workers[i],'loadc("math.plugin", function () {send ("DONE")} )');  
+    }
+    for(var i=0;i<this.numparts;i++) {
+      await Code.worker.receive(this.workers[i]);  
+    }
+  }
+  // Send shared memory to workers
+  for(var i=0;i<this.numparts;i++) {
+    if (this.verbose) this.log('Sending Shared Memory Segment to worker '+i);
+    await Code.worker.share(this.workers[i],'this.'+this.sm.key.replace(/\//g,''),this.sm);  
+  }
+  i=0;
+  // Sending Simu1 with partition 
+  this.log('Creating Partition Map');
+  var psl=this.partitions.map(function (row) {
+    return row.map(function (p) {
+      var _p=copyAttributes(p,null,['slices']);
+      _p.slices={}
+      for(var k in p.slices) {
+        _p.slices[k]=copyAttributes(p.slices[k],null,['data'])
+        _p.slices[k].data=BufferSegment.ArrayType.serialize(p.slices[k].data);
+      }
+      return _p
+    })
+  })
+  
+  this.partitions.forEach(function (row) {
+    row.forEach(function (p) {
+      var ps={model:self.model,id:self.id};
+      ps.offsetX=p.x0;
+      ps.offsetY=p.y0;
+      ps.rows=p.height;
+      ps.columns=p.width;
+      ps.prow=p.prow;
+      ps.pcol=p.pcol;
+      ps.public={}
+      ps.verbose=1;
+      ps.partition=p.pcol+','+p.prow;
+      ps.partitions=psl; 
+      ps.rtable=self.partitions.rtable;
+      ps.semaphore=BufferSegment.SemaType.serialize(self.semaphore);
+      ps.barrier=BufferSegment.BarrierType.serialize(self.barrier);
+      for(var k in self.public) {
+        ps.public[k]=BufferSegment.MatrixType.serialize(self.public[k]);
+      }
+      if (self.verbose) self.log('Creating simulator on worker '+i);
+      Code.worker.evalf(self.workers[i],function (data) {
+        var simulation = Utils.deserialize(data);
+        checkAttributes = simulation.checkAttributes;
+        copy = simulation.copy;
+        Cell  = simulation.Cell;
+        Simu1 = simulation.Simu1;
+        try {
+          this.siminstance = Simu1(simulation.partition);
+        } catch (e) { print("Simu1 failed: "+e.toString(),e.stack||e) }
+      },Utils.serialize({
+        Simu1 : Simu1,
+        Cell  : Cell,
+        checkAttributes : checkAttributes,
+        copy  : copy,
+        partition : ps
+      }))
+      i++;
+    })
+  })
+}
+SimuPar.prototype.run = async function (steps) {
+  steps=steps||1;
+  for(var i in this.workers) {
+    Code.worker.run(this.workers[i],'this.siminstance.run('+steps+'); send({status:"OK"});');
+  }
+  for(var i in this.workers) {
+    var status = await Code.worker.receive(this.workers[i]);
+  }
+}
+
+SimuPar.prototype.testSlice = function (row,col) {
+  var self=this;
+  function within (sbox,x,y) {
+    return x >= sbox.x0 && x <= sbox.x1 &&
+           y >= sbox.y0 && y <= sbox.y1
+  }
+  function testSlice (row,col) {
+    var rt = self.partitions.rtable;
+    for(var i in rt) {
+      var r = rt[i];
+      if (within(r,col,row)) {
+        var s=r.slice;
+        return self.partitions[s.prow][s.pcol].slices[s.slice];
+      }
+    }
+  }
+  return testSlice(row,col)
+}
+
+module.exports =  {
+  Cell : Cell,
+  Simu1 : Simu1,
+  SimuPar : SimuPar
+}
+
+};
+
+var Base64=Require('os/base64');
+module.exports = Require('plugins/cap/cap.lib.js');
+if (typeof window != 'undefined') for(var p in module.exports) window[p]=module.exports[p];
+return module.exports;
