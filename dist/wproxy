@@ -1805,6 +1805,10 @@ for (var i=0;i<process.argv.length;i++) {
   if (arg[0]=='-') {
     switch (arg.slice(1)) {
       case 'http': config.http=Number(process.argv[i+1]); i++; break;
+      case 'https': config.https=Number(process.argv[i+1]); i++; config.proto='https'; break;
+      case 'key': config.key=process.argv[i+1]; i++; config.proto='https';break;
+      case 'cert': config.cert=process.argv[i+1]; i++; config.proto='https';break;
+      case 'proto': config.proto=process.argv[i+1]; i++; config.proto='https';break;
       case 'portHTTP': config.portHTTP=Number(process.argv[i+1]); i++; break;
       case 'portWS': config.portWS=Number(process.argv[i+1]); i++; break;
       case 'shell': config.shell=process.argv[i+1]; i++; break;
@@ -1822,7 +1826,7 @@ var log = function () {
 var proxy = Require('plugins/proxy/proxy')
 config.log=log;
 if (process.argv.indexOf('-h')!=-1)  {
-  log('usage: wproxy [-shell <path-to-webshell.html>] [-script <path-to-worker-js-script>] [-I <file-path-to-include>] [-http NUM] [-host IP] [-port NUM] [-portHTTP NUM] [-portWS NUM] [-timeout NUM] [-timeoutGroup NUM] [.v]');
+  log('usage: wproxy [-shell <path-to-webshell.html>] [-script <path-to-worker-js-script>] [-I <file-path-to-include>] [-http NUM] [-https NUM] [-host IP] [-port NUM] [-portHTTP NUM] [-portWS NUM] [-timeout NUM] [-timeoutGroup NUM] [.v]');
 } else proxy(config);
 
 };
@@ -1831,9 +1835,13 @@ var html = Require('plugins/html/html');
 var fs = require('fs');
 
 function proxy(config) {
-  var time = Date.now;
-  var http = require('http');
-  var WebSocket = require('ws');
+  var time = Date.now,
+      proto = config.proto||'http';
+  var http = require('http'),
+      https;
+  try { https = require('https') } catch (e) {}
+  var WebSocket;
+  try { WebSocket = require('ws') } catch (e) {}
   var Groups = {},
       VC={};
   this.log=config.log||console.log.bind(console);
@@ -1909,7 +1917,21 @@ function proxy(config) {
   }
 
   // 1. HTTP Primary Port
-  var httpServ = http.createServer(function (request,response) {
+  var options = {}
+  if (proto=='https' && !https) throw Error('Http.service: Protocol https not supportd.');
+  if (proto=='https') {
+    options.key=config.key; options.cert=config.cert;
+    if (!options.key || !options.cert) throw Error('https requires key and cert files (absolute paths!)');
+    if (fs.existsSync(options.key)) {
+      log('Loading file '+options.key);
+      options.key=fs.readFileSync(options.key);
+    }
+    if (fs.existsSync(options.cert)) {
+      log('Loading file '+options.cert);
+      options.cert=fs.readFileSync(options.cert);
+    } 
+  }
+  var httpServ = (proto=='https'?https:http).createServer(options,function (request,response) {
     function parseQueryString( url ) {
         var queryString = url.substring( url.indexOf('?') + 1 );
         if (queryString == url) return [];
@@ -1976,7 +1998,7 @@ function proxy(config) {
   });
 
   httpServ.listen(config.portHTTP,function (err) {
-    log('Primary Proxy/Group Service listening on (http://'+config.host+':'+config.portHTTP+')');
+    log('Primary Proxy/Group Service listening on ('+proto+'://'+config.host+':'+config.portHTTP+')');
   });
  
 
@@ -2183,7 +2205,7 @@ function proxy(config) {
         }
       }
     }
-    var scriptServ = http.createServer(function (request,response) { try {
+    var scriptServ = (proto=='https'?https:http).createServer(options,function (request,response) { try {
         function parseQueryString( url ) {
             var queryString = url.substring( url.indexOf('?') + 1 );
             if (queryString == url) return [];
@@ -2240,9 +2262,9 @@ function proxy(config) {
       log(err)
       process.exit();
     });
-    config.http=config.http||8080;
+    config.http=config.http||config.https||8080;
     scriptServ.listen(config.http,function (err) {
-      log('File Service listening on (http://'+config.host+':'+config.http+')');
+      log('File Service listening on ('+proto+'://'+config.host+':'+config.http+')');
     });
    
     
