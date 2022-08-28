@@ -8,6 +8,12 @@ Institute for Digitisation and Sensor Data Science
 28359 Bremen, Germany
 ```
 
+## Cite
+
+```
+S. Bosse, PSciLab: An Unified Distributed and Parallel Software Framework for Data Analysis, Simulation and Machine Learning—Design Practice, Software Architecture, and User Experience , Appl. Sci. 2022, 12(6), 2887; 10.3390/app12062887
+```
+
 ## Components
 
 ### WorkBook
