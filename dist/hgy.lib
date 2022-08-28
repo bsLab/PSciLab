@@ -1,0 +1,2002 @@
+var CoreModule = {};
+CoreModule['com/io']='com/io';
+CoreModule['com/pwgen']='com/pwgen.lw';
+CoreModule['assert']='os/assert';
+CoreModule['crypto']='os/crypto.rand';
+CoreModule['events']='os/events';
+CoreModule['path']='os/path';
+CoreModule['string_decoder']='os/string_decoder';
+CoreModule['util']='util';
+CoreModule['http']='http';
+CoreModule['deasync']='deasync';
+CoreModule['os']='os';
+CoreModule['net']='net';
+CoreModule['fs']='fs';
+CoreModule['stream']='';
+CoreModule['url']='';
+CoreModule['zlib']='';
+CoreModule['child_process']='';
+
+var BundleModuleCode=[];
+var BundleObjectCode=[];
+var BundleModules = [];
+var Fs = require("fs");
+if (typeof __dirname == 'undefined') __dirname = '';
+if (typeof __filename == 'undefined') __filename = 'plugins/hgy/hgy.js';
+//From compat.js
+var any = undefined;
+var empty = null;
+var none = null;
+var _ = undefined;
+var int = function (v) {return v|0};
+var div = function (a,b) {return a/b|0};
+var print = function (msg) {console.log(msg)};
+if (typeof global == 'undefined') global={};
+PATHS=[process.cwd(),".","/home/sbosse/proj/workbook/src",""];
+function _isdir(path) {
+  var stats=Fs.statSync(path);
+  return stats && stats.isDirectory()};
+function _search(index,file) {
+  if (PATHS.length==index) return file;
+  var path=PATHS[index];
+  if (Fs.existsSync(path+"/"+file+".js")) return path+"/"+file+".js";
+  else if (Fs.existsSync(path+"/"+file) && !_isdir(path+"/"+file)) return path+"/"+file;
+  else return _search(index+1,file);
+ }
+var __library=arguments&&arguments[3];
+function Require(modupath) { 
+  var file,filepath;
+  if (BundleModules[modupath]) return BundleModules[modupath];
+  var exports={}; var module={exports:exports};
+  if (CoreModule[modupath]!=undefined) modupath=CoreModule[modupath];
+  if (modupath=='') return undefined;
+  if (BundleModuleCode[modupath]) BundleModuleCode[modupath](module,exports,global,process);
+  else if (BundleObjectCode[modupath]) BundleObjectCode[modupath](module,exports,global,process);
+  else { try { file=_search(0,modupath); module = require(file)}
+  catch (e) { var more="";
+   if ((e.name==="SyntaxError"||e.name==="TypeError") && file) {
+      var src=Fs.readFileSync(file,"utf8");
+      var Esprima = Require("parser/esprima");
+      try {
+        var ast = Esprima.parse(src, { tolerant: true, loc:true });
+        if (ast.errors && ast.errors.length>0) more = ", "+ast.errors[0];
+      } catch (e) {
+        if (e.lineNumber) more = ", in line "+e.lineNumber;
+      }
+   }
+   console.log("Require import of "+modupath+" ("+file+") failed: "+e+more);
+   // if (e.stack) console.log(e.stack);
+   throw e; // process.exit(-1);
+  }}
+  BundleModules[modupath]=module.exports||module;
+  return module.exports||module;};
+FilesEmbedded=global.FilesEmbedded = {};
+FileEmbedd=global.FileEmbedd = function (path,format) {};
+FileEmbedded=global.FileEmbedded = function (path,format) {return FilesEmbedded[path](format);};
+global.TARGET='node';
+
+BundleModuleCode['com/io']=function (module,exports,global,process){
+/**
+ **      ==================================
+ **      OOOO   OOOO OOOO  O      O   OOOO
+ **      O   O  O    O     O     O O  O   O
+ **      O   O  O    O     O     O O  O   O
+ **      OOOO   OOOO OOOO  O     OOO  OOOO
+ **      O   O     O    O  O    O   O O   O
+ **      O   O     O    O  O    O   O O   O
+ **      OOOO   OOOO OOOO  OOOO O   O OOOO
+ **      ==================================
+ **      BSSLAB, Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR.
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2020 BSSLAB
+ **    $CREATED:     sbosse on 3/28/15.
+ **    $VERSION:     1.7.1X
+ **
+ **    $INFO:
+ *
+ * This module encapsulates all IO operations (except networking) supporting
+ * node.js applications.
+ *
+ **    $ENDOFINFO
+ */
+
+if (global.TARGET=='node')  { 
+
+ /*
+  ************
+  ** Node.js
+  ************
+  */
+ var util = require('util');
+ var GetEnv = Require('os/getenv');
+ var Base64 = Require('os/base64');
+ var Fs = require('fs');
+ var os = require('os');
+ var child = require('child_process');
+
+ var stderr_fun = function (str) { process.stderr.write(str); };
+ var stdout_fun = function (str) { process.stdout.write(str); };
+
+ /*
+  ** node.js specific
+  */
+
+ var tracefile = undefined;
+ var tracing = true;
+
+ /**
+ * Open a module and append all exported properties to the current global object.
+ * (top-level scope)
+ */
+ global.open = function(name,as) {
+   var module = Require(name);
+   for (var p in module) {
+     global[p] = module[p];
+   };
+   if (as) global[as]=module;
+ }
+
+/*
+ ** node.js
+ */
+var io = {
+    checkOptions : function(options,defaultOptions) {
+      return Object.assign({}, defaultOptions||{}, options) },
+      
+    checkOption : function (option,defaultOption) { 
+      return option==undefined? defaultOption:option },
+
+    config: {
+        columns:undefined,
+        rows:undefined
+    },
+    /**************
+     ** FILE IO
+     ***************/
+    /**
+     *
+     * @param fd
+     */
+    close: function (fd) {
+        Fs.closeSync(fd);
+    },
+    /**
+     *
+     * @param path
+     */
+    exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /**
+     *
+     * @param path
+     */
+    file_exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /** Search a file by iterating global PATH variable.
+     *
+     * @param name  File name or partial (relative) path
+     */
+    file_search: function (name) {
+        // Expecting global PATH variable !?
+        if (this.file_exists(name)) return name; 
+        else if (typeof PATH !== 'undefined') {
+          for (var p in PATH) {
+            if (this.file_exists(PATH[p]+'/'+name)) return (PATH[p]+'/'+name);
+          }
+          return undefined;
+        } else return undefined;
+    },
+    /**
+     *
+     * @param path
+     * @returns {number}
+     */
+    file_size: function (path) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            return stat.size;
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param timekind a c m
+     * @returns {number}
+     */
+    file_time: function (path,timekind) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            switch (timekind) {
+                case 'a': return stat.atime.getTime()/1000;
+                case 'c': return stat.ctime.getTime()/1000;
+                case 'm': return stat.mtime.getTime()/1000;
+                default: return stat.mtime.getTime()/1000;
+            }
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param mode
+     * @returns {*}
+     */
+    open: function (path, mode) {
+        return Fs.openSync(path, mode);
+    },
+    /**
+     *
+     * @param fd
+     * @param len
+     * @param foff
+     */
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    /**
+     *
+     * @param path
+     * @returns {string|undefined}
+     */
+    read_file: function (path) {
+        try {
+            return Fs.readFileSync(path,'utf8');
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @returns {*}
+     */
+    read_file_bin: function (path) {
+        try {
+            return Fs.readFileSync(path);
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param fd
+     */
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {number}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return Fs.readSync(fd, buf, boff, len, foff);
+    },
+    /**
+     *
+     * @param fd
+     */
+    sync: function (fd) {
+        Fs.fsyncSync(fd);
+    },
+    
+    time: function () {
+      return Date.now()
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {number}
+     */
+    write: function (fd, data, foff) {
+        return Fs.writeSync(fd, data, foff);
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {number}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return Fs.writeSync(fd, buf, bpos, blen, foff);
+    },
+    /**
+     *
+     * @param path
+     * @param {string} buf
+     */
+    write_file: function (path,str) {
+        try {
+            Fs.writeFileSync(path, str, 'utf8');
+            return str.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @param buf
+     * @returns {*}
+     */
+    write_file_bin: function (path,buf) {
+        try {
+            Fs.writeFileSync(path, buf, 'binary');
+            return buf.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param fd
+     * @param {string} str
+     * @returns {number}
+     */
+    write_line: function (fd, str) {
+        return Fs.writeSync(fd, str+NL);
+    },
+
+    /****************
+     ** CONSOLE IO
+     ****************/
+    /**
+     *
+     * @param msg
+     */
+    debug: function (msg) {
+        console.error('Debug: ' + msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    err: function (msg) {
+        console.error('Error: ' + msg);
+        throw Error(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    fail: function (msg) {
+        console.error('Fatal Error: ' + msg);
+        process.exit(0);
+    },
+    /**
+     *
+     * @param obj
+     */
+    inspect: function (obj,depth) {return util.inspect(obj,{showHidden: false, 
+                                                            depth: depth?depth:2})},
+
+    /**
+     * 
+     */
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (!e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        if (where==undefined) this.out(e);
+        else this.out(where+': '+e);
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+     /**
+     *
+     * @param e
+     * @param where
+     */
+    sprintstack: function (e) {
+        var str='';
+        if (e==_ || !e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .replace(/^Object.eval\s*\(/gm, '')
+            .split('\n');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                if (str!='') str += '\n';
+                str += '  at '+line;
+            }
+        }
+        return str;
+    },
+   /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    out: function (msg) {
+        console.warn(msg)
+    },
+    /**
+     *
+     * @param msg
+     */
+    warn: function (msg) {
+        console.warn('Warning: ' + msg);
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+    /**
+     *
+     * @param msg
+     */
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            Fs.writeSync(tracefile, '[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        tracefile = Fs.openSync(path, 'w+');
+        if (tracefile != undefined) this.tracing = false;
+    },
+
+    /**************
+     ** Process control
+     ***************/
+    exit: function (n) {
+        process.exit(n);
+    },
+    /**
+     *
+     * @returns {*} RSS HEAP in kBytes {data,heap}
+     */
+    mem: function () {
+        var mem = process.memoryUsage();
+        return {data:(mem.rss/1024)|0,heap:(mem.heapUsed/1024)|0};
+    },
+    /****************************
+     ** Environment and Arguments
+     ****************************/
+    getenv: function (name, def) {
+        return GetEnv(name, def);
+    },
+    workdir: function () {
+        return this.getenv('PWD','');
+    },
+
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return process.argv;
+    },
+
+    sleep: function(delay) {
+      var start = new Date().getTime();
+      while (new Date().getTime() < start + delay);
+    },
+    
+    /**
+     *  Process management
+     */
+    fork: child.fork,
+    exec: child.exec,
+    spawn: child.spawn,
+
+    /**
+     * OS
+     */
+    hostname: os.hostname
+
+  };
+} else {
+ /*
+  ************
+  ** Browser
+  ************
+  */
+  var tracing = true;
+  var stderr_fun = function (str) { console.log(str); };
+  var stdout_fun = function (str) { console.log(str); };
+  var args=[];
+
+  /**
+  * Open a module and append all exported properties to the current global object.
+  * (top-level scope)
+  */
+  global.open = function(name,as) {
+    var module = Require(name);
+    for (var p in module) {
+      global[p] = module[p];
+    };
+    if (as) global[as]=module;
+  }
+  
+  var io = {
+    /*
+    ************
+    ** Browser
+    ************
+    */
+    /*
+     ** FILE IO
+     * TODO WebStorage
+     */
+    close: function (fd) {
+        return;
+    },
+    exists: function (path) {
+        return false;
+    },
+    open: function (path, mode) {
+        var fd = Fs.openSync(path, mode);
+        return fd;
+    },
+
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    read_file: function (path) {
+        return '';
+    },
+
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {*}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return -1;
+    },
+    sync: function (fd) {
+        return;
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {*}
+     */
+    write: function (fd, data, foff) {
+        return -1;
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {*}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return -1;
+    },
+
+    /*
+     ** CONSOLE IO
+     */
+    debug: function (msg) {
+        stderr_fun('Debug: ' + msg);
+    },
+    err: function (msg) {
+        stderr_fun('Error: ' + msg);
+        throw Error(msg);
+    },
+    fail: function (msg) {
+        stderr_fun('Fatal Error: ' + msg);
+    },
+    inspect: function (obj) {
+        return;
+    },
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        stderr_fun('Stack Trace');
+        stderr_fun('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                stderr_fun(line);
+            }
+        }
+        stderr_fun('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (where==undefined) stderr_fun(e);
+        else stderr_fun(where+': '+e);
+    },
+    /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    out: function (msg) {
+        stdout_fun(msg)
+    },
+    warn: function (msg) {
+        stderr_fun('Warning: ' + msg);
+    },
+
+
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            this.log('[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        return undefined;
+    },
+
+    exit: function (n) {
+        return;
+    },
+    getenv: function (name, def) {
+        return def;
+    },
+    workdir: function () {
+        return '';
+    },
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return args;
+    },
+    set_args: function (argv) {
+        args=argv;
+    },
+    inspect: function (o) {return '?'}
+  };
+}  
+module.exports = io;
+};
+BundleModuleCode['os/getenv']=function (module,exports,global,process){
+var util = require("util");
+var url = require("url");
+
+var fallbacksDisabled = false;
+
+function _value(varName, fallback) {
+  var value = process.env[varName];
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new Error('GetEnv.Nonexistent: ' + varName + ' does not exist ' +
+                      'and no fallback value provided.');
+    }
+    if (fallbacksDisabled) {
+      throw new Error('GetEnv.DisabledFallbacks: ' + varName + ' relying on fallback ' + 
+                      'when fallbacks have been disabled');
+    }
+    return '' + fallback;
+  }
+  return value;
+}
+
+var convert = {
+  string: function(value) {
+    return '' + value;
+  },
+  int: function(value) {
+    var isInt = value.match(/^-?\d+$/);
+    if (!isInt) {
+      throw new Error('GetEnv.NoInteger: ' + value + ' is not an integer.');
+    }
+
+    return +value;
+  },
+  float: function(value) {
+    var isInfinity = (+value === Infinity || +value === -Infinity);
+    if (isInfinity) {
+      throw new Error('GetEnv.Infinity: ' + value + ' is set to +/-Infinity.');
+    }
+
+    var isFloat = !(isNaN(value) || value === '');
+    if (!isFloat) {
+      throw new Error('GetEnv.NoFloat: ' + value + ' is not a number.');
+    }
+
+    return +value;
+  },
+  bool: function(value) {
+    var isBool = (value === 'true' || value === 'false');
+    if (!isBool) {
+      throw new Error('GetEnv.NoBoolean: ' + value + ' is not a boolean.');
+    }
+
+    return (value === 'true');
+  },
+  url: url.parse
+};
+
+function converter(type) {
+  return function(varName, fallback) {
+    if(typeof varName == 'string') { // default
+      var value = _value(varName, fallback);
+      return convert[type](value);
+    } else { // multibert!
+      return getenv.multi(varName);
+    }
+  };
+};
+
+var getenv = converter('string');
+
+Object.keys(convert).forEach(function(type) {
+  getenv[type] = converter(type);
+});
+
+getenv.array = function array(varName, type, fallback) {
+  type = type || 'string';
+  if (Object.keys(convert).indexOf(type) === -1) {
+    throw new Error('GetEnv.ArrayUndefinedType: Unknown array type ' + type);
+  }
+  var value = _value(varName, fallback);
+  return value.split(/\s*,\s*/).map(convert[type]);
+};
+
+getenv.multi = function multi(spec) {
+  var key, value;
+  var result = {};
+  for(var key in spec) {
+    var value = spec[key];
+    if(util.isArray(value)) { // default value & typecast
+      switch(value.length) {
+        case 1: // no default value
+        case 2: // no type casting
+          result[key] = getenv(value[0], value[1]); // dirty, when case 1: value[1] is undefined
+        break;
+        case 3: // with typecast
+          result[key] = getenv[value[2]](value[0], value[1]);
+          break;
+        default: // wtf?
+          throw('getenv.multi(): invalid spec');
+          break;
+      }
+    } else { // value or throw
+      result[key] = getenv(value);
+    }
+  }
+  return result;
+};
+
+getenv.disableFallbacks = function() {
+  fallbacksDisabled = true;
+};
+
+getenv.enableFallbacks = function() {
+  fallbacksDisabled = false;
+};
+
+module.exports = getenv;
+};
+BundleModuleCode['os/base64']=function (module,exports,global,process){
+var keyStr = "ABCDEFGHIJKLMNOP" +
+               "QRSTUVWXYZabcdef" +
+               "ghijklmnopqrstuv" +
+               "wxyz0123456789+/" +
+               "=";
+var Buffer=Require('buffer').Buffer;
+var Base64 = {
+  encode: function (input) {
+     input = escape(input);
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     do {
+        chr1 = input.charCodeAt(i++);
+        chr2 = input.charCodeAt(i++);
+        chr3 = input.charCodeAt(i++);
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < input.length);
+
+     return output;
+  },
+
+  encodeBuf: function (input) {
+     var output = "";
+     var NaN = output.charCodeAt(2);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var len = input.length;
+     do {
+        chr1 = input.readUInt8(i++);
+        chr2 = (i<len)?input.readUInt8(i++):NaN;
+        chr3 = (i<len)?input.readUInt8(i++):NaN;
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < len);
+
+     return output;
+  },
+
+  decode: function (input) {
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output = output + String.fromCharCode(chr1);
+
+        if (enc3 != 64) {
+           output = output + String.fromCharCode(chr2);
+        }
+        if (enc4 != 64) {
+           output = output + String.fromCharCode(chr3);
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return unescape(output);
+  },
+  decodeBuf: function (input) {
+     var len = input.length;
+     var buf = new Buffer(len);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var buflen = 0;
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+     buf.fill(0);
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        buf.writeUInt8(chr1,buflen);
+        buflen++;
+        if (enc3 != 64) {
+          buf.writeUInt8(chr2,buflen);
+          buflen++;
+        }
+        if (enc4 != 64) {
+            buf.writeUInt8(chr3,buflen);
+            buflen++;
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return buf.slice(0,buflen);
+  }
+
+};
+
+
+module.exports = Base64;
+};
+BundleModuleCode['com/path']=function (module,exports,global,process){
+var process = process || {};
+(function () {
+  "use strict";
+
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+var isWindows = process.platform === 'win32';
+var util = Require('util');
+
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+
+if (isWindows) {
+  // Regex to split a windows path into three parts: [*, device, slash,
+  // tail] windows-only
+  var splitDeviceRe =
+      /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
+
+  // Regex to split the tail part of the above into [*, dir, basename, ext]
+  var splitTailRe =
+      /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
+
+  // Function to split a filename into [root, dir, basename, ext]
+  // windows version
+  var splitPath = function(filename) {
+    // Separate device+slash from tail
+    var result = splitDeviceRe.exec(filename),
+        device = (result[1] || '') + (result[2] || ''),
+        tail = result[3] || '';
+    // Split the tail into dir, basename and extension
+    var result2 = splitTailRe.exec(tail),
+        dir = result2[1],
+        basename = result2[2],
+        ext = result2[3];
+    return [device, dir, basename, ext];
+  };
+
+  var normalizeUNCRoot = function(device) {
+    return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
+  };
+
+  // path.resolve([from ...], to)
+  // windows version
+  exports.resolve = function() {
+    var resolvedDevice = '',
+        resolvedTail = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1; i--) {
+      var path;
+      if (i >= 0) {
+        path = arguments[i];
+      } else if (!resolvedDevice) {
+        path = process.cwd();
+      } else {
+        // Windows has the concept of drive-specific current working
+        // directories. If we've resolved a drive letter but not yet an
+        // absolute path, get cwd for that drive. We're sure the device is not
+        // an unc path at this points, because unc paths are always absolute.
+        path = process.env['=' + resolvedDevice];
+        // Verify that a drive-local cwd was found and that it actually points
+        // to our drive. If not, default to the drive's root.
+        if (!path || path.substr(0, 3).toLowerCase() !==
+            resolvedDevice.toLowerCase() + '\\') {
+          path = resolvedDevice + '\\';
+        }
+      }
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      var result = splitDeviceRe.exec(path),
+          device = result[1] || '',
+          isUnc = device && device.charAt(1) !== ':',
+          isAbsolute = exports.isAbsolute(path),
+          tail = result[3];
+
+      if (device &&
+          resolvedDevice &&
+          device.toLowerCase() !== resolvedDevice.toLowerCase()) {
+        // This path points to another device so it is not applicable
+        continue;
+      }
+
+      if (!resolvedDevice) {
+        resolvedDevice = device;
+      }
+      if (!resolvedAbsolute) {
+        resolvedTail = tail + '\\' + resolvedTail;
+        resolvedAbsolute = isAbsolute;
+      }
+
+      if (resolvedDevice && resolvedAbsolute) {
+        break;
+      }
+    }
+
+    // Convert slashes to backslashes when `resolvedDevice` points to an UNC
+    // root. Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      resolvedDevice = normalizeUNCRoot(resolvedDevice);
+    }
+
+    // At this point the path should be resolved to a full absolute path,
+    // but handle relative paths to be safe (might happen when process.cwd()
+    // fails)
+
+    // Normalize the tail path
+
+    function f(p) {
+      return !!p;
+    }
+
+    resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/).filter(f),
+                                  !resolvedAbsolute).join('\\');
+
+    return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
+           '.';
+  };
+
+  // windows version
+  exports.normalize = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = device && device.charAt(1) !== ':',
+        isAbsolute = exports.isAbsolute(path),
+        tail = result[3],
+        trailingSlash = /[\\\/]$/.test(tail);
+
+    // If device is a drive letter, we'll normalize to lower case.
+    if (device && device.charAt(1) === ':') {
+      device = device[0].toLowerCase() + device.substr(1);
+    }
+
+    // Normalize the tail path
+    tail = normalizeArray(tail.split(/[\\\/]+/).filter(function(p) {
+      return !!p;
+    }), !isAbsolute).join('\\');
+
+    if (!tail && !isAbsolute) {
+      tail = '.';
+    }
+    if (tail && trailingSlash) {
+      tail += '\\';
+    }
+
+    // Convert slashes to backslashes when `device` points to an UNC root.
+    // Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      device = normalizeUNCRoot(device);
+    }
+
+    return device + (isAbsolute ? '\\' : '') + tail;
+  };
+
+  // windows version
+  exports.isAbsolute = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = !!device && device.charAt(1) !== ':';
+    // UNC paths are always absolute
+    return !!result[2] || isUnc;
+  };
+
+  // windows version
+  exports.join = function() {
+    function f(p) {
+      if (!util.isString(p)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      return p;
+    }
+
+    var paths = Array.prototype.filter.call(arguments, f);
+    var joined = paths.join('\\');
+
+    // Make sure that the joined path doesn't start with two slashes, because
+    // normalize() will mistake it for an UNC path then.
+    //
+    // This step is skipped when it is very clear that the user actually
+    // intended to point at an UNC path. This is assumed when the first
+    // non-empty string arguments starts with exactly two slashes followed by
+    // at least one more non-slash character.
+    //
+    // Note that for normalize() to treat a path as an UNC path it needs to
+    // have at least 2 components, so we don't filter for that here.
+    // This means that the user can use join to construct UNC paths from
+    // a server name and a share name; for example:
+    //   path.join('//server', 'share') -> '\\\\server\\share\')
+    if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
+      joined = joined.replace(/^[\\\/]{2,}/, '\\');
+    }
+
+    return exports.normalize(joined);
+  };
+
+  // path.relative(from, to)
+  // it will solve the relative path from 'from' to 'to', for instance:
+  // from = 'C:\\orandea\\test\\aaa'
+  // to = 'C:\\orandea\\impl\\bbb'
+  // The output of the function should be: '..\\..\\impl\\bbb'
+  // windows version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from);
+    to = exports.resolve(to);
+
+    // windows is not case sensitive
+    var lowerFrom = from.toLowerCase();
+    var lowerTo = to.toLowerCase();
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var toParts = trim(to.split('\\'));
+
+    var lowerFromParts = trim(lowerFrom.split('\\'));
+    var lowerToParts = trim(lowerTo.split('\\'));
+
+    var length = Math.min(lowerFromParts.length, lowerToParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (lowerFromParts[i] !== lowerToParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    if (samePartsLength == 0) {
+      return to;
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < lowerFromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('\\');
+  };
+
+  exports.sep = '\\';
+  exports.delimiter = ';';
+
+} else /* posix */ {
+
+  // Split a filename into [root, dir, basename, ext], unix version
+  // 'root' is just a slash, or nothing.
+  var splitPathRe =
+      /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+  var splitPath = function(filename) {
+    return splitPathRe.exec(filename).slice(1);
+  };
+
+  // path.resolve([from ...], to)
+  // posix version
+  exports.resolve = function() {
+    var resolvedPath = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+      var path = (i >= 0) ? arguments[i] : process.cwd();
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      resolvedPath = path + '/' + resolvedPath;
+      resolvedAbsolute = path.charAt(0) === '/';
+    }
+
+    // At this point the path should be resolved to a full absolute path, but
+    // handle relative paths to be safe (might happen when process.cwd() fails)
+
+    // Normalize the path
+    resolvedPath = normalizeArray(resolvedPath.split('/').filter(function(p) {
+      return !!p;
+    }), !resolvedAbsolute).join('/');
+
+    return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+  };
+
+  // path.normalize(path)
+  // posix version
+  exports.normalize = function(path) {
+    var isAbsolute = exports.isAbsolute(path),
+        trailingSlash = path[path.length - 1] === '/',
+        segments = path.split('/'),
+        nonEmptySegments = [];
+
+    // Normalize the path
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i]) {
+        nonEmptySegments.push(segments[i]);
+      }
+    }
+    path = normalizeArray(nonEmptySegments, !isAbsolute).join('/');
+
+    if (!path && !isAbsolute) {
+      path = '.';
+    }
+    if (path && trailingSlash) {
+      path += '/';
+    }
+
+    return (isAbsolute ? '/' : '') + path;
+  };
+
+  // posix version
+  exports.isAbsolute = function(path) {
+    return path.charAt(0) === '/';
+  };
+
+  // posix version
+  exports.join = function() {
+    var path = '';
+    for (var i = 0; i < arguments.length; i++) {
+      var segment = arguments[i];
+      if (!util.isString(segment)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      if (segment) {
+        if (!path) {
+          path += segment;
+        } else {
+          path += '/' + segment;
+        }
+      }
+    }
+    return exports.normalize(path);
+  };
+
+
+  // path.relative(from, to)
+  // posix version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from).substr(1);
+    to = exports.resolve(to).substr(1);
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var fromParts = trim(from.split('/'));
+    var toParts = trim(to.split('/'));
+
+    var length = Math.min(fromParts.length, toParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (fromParts[i] !== toParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < fromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('/');
+  };
+
+  exports.sep = '/';
+  exports.delimiter = ':';
+}
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+
+exports.exists = util.deprecate(function(path, callback) {
+  require('fs').exists(path, callback);
+}, 'path.exists is now called `fs.exists`.');
+
+
+exports.existsSync = util.deprecate(function(path) {
+  return require('fs').existsSync(path);
+}, 'path.existsSync is now called `fs.existsSync`.');
+
+
+if (isWindows) {
+  exports._makeLong = function(path) {
+    // Note: this will *probably* throw somewhere.
+    if (!util.isString(path))
+      return path;
+
+    if (!path) {
+      return '';
+    }
+
+    var resolvedPath = exports.resolve(path);
+
+    if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
+      // path is local filesystem path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\' + resolvedPath;
+    } else if (/^\\\\[^?.]/.test(resolvedPath)) {
+      // path is network UNC path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\UNC\\' + resolvedPath.substring(2);
+    }
+
+    return path;
+  };
+} else {
+  exports._makeLong = function(path) {
+    return path;
+  };
+}
+}());
+};
+BundleModuleCode['com/sprintf']=function (module,exports,global,process){
+(function(window) {
+    var re = {
+        not_string: /[^s]/,
+        number: /[diefg]/,
+        json: /[j]/,
+        not_json: /[^j]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function(parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && re.not_json.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                    break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                    break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                    break
+                    case "j":
+                        arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                    break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                    break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                    break
+                    case "g":
+                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
+                    break
+                    case "o":
+                        arg = arg.toString(8)
+                    break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                    break
+                    case "u":
+                        arg = arg >>> 0
+                    break
+                    case "x":
+                        arg = arg.toString(16)
+                    break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                    break
+                }
+                if (re.json.test(match[8])) {
+                    output[output.length] = arg
+                }
+                else {
+                    if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                        sign = is_positive ? "+" : "-"
+                        arg = arg.toString().replace(re.sign, "")
+                    }
+                    else {
+                        sign = ""
+                    }
+                    pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                    pad_length = match[6] - (sign + arg).length
+                    pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                    output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+                }
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function(fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            try {_fmt = _fmt.substring(match[0].length)} catch (e) {throw new SyntaxError("[sprintf] unexpected fromat")}
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function(fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+     */
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function() {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+})(typeof window === "undefined" ? this : window);
+};
+BundleModuleCode['plugins/hgy/hgy.js']=function (module,exports,global,process){
+var hgyReader = Require('plugins/hgy/hgy-reader');
+
+module.exports = {
+  hgyReader : hgyReader
+}
+};
+BundleModuleCode['plugins/hgy/hgy-reader']=function (module,exports,global,process){
+/**
+ **      ==============================
+ **       O           O      O   OOOO
+ **       O           O     O O  O   O
+ **       O           O     O O  O   O
+ **       OOOO   OOOO O     OOO  OOOO
+ **       O   O       O    O   O O   O
+ **       O   O       O    O   O O   O
+ **       OOOO        OOOO O   O OOOO
+ **      ==============================
+ **      Dr. Stefan Bosse http://www.sblab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR(S).
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2022 bLAB
+ **    $CREATED:     1-1-19 by sbosse.
+ **    $VERSION:     1.1.4
+ **
+ **    $INFO:
+ **
+ **   Stream-based HGY fileformat reader and parser supporting very large file sizes.
+ **
+ **    $ENDOFINFO
+ */
+var lineReader
+try {
+  // requires custom linereader!!!
+  if (typeof FS != 'undefined' && FS.linereader) lineReader=FS.linereader;
+  else lineReader = require('./linereader') 
+} catch (e) {  }
+var Matrix 
+try { Matrix = Math.MatrixTA?Math.MatrixTA:require('matrix') } catch (e) { }
+
+function trim (s,left,right) {
+  return s.substring(left,s.length-left-right+1);
+}
+function contains (l,li) {
+  return l.indexOf(li)>=0;
+}
+function convert (o,typ) {
+  if (typeof o == 'object') {
+    for(var p in o) {
+      var tokens = p.split('.');
+      if (tokens.length==1)
+        o[p]=convert(o[p],typ);
+      else {
+        if (o[tokens[0]]==undefined) o[tokens[0]]={};
+        o[tokens[0]][tokens[1]]=convert(o[p],typ);
+        delete o[p];
+      }
+    }
+    return o;
+  } else {
+    switch (typ) {
+      case 'numeric':
+        if (typeof o == 'string') {
+          var trynum= Number(o);
+          if (!isNaN(trynum)) return trynum;
+          else return o;
+        }
+        break;
+      default:
+        return o;
+    }
+  }
+}
+var SECTION= {
+  HEADER:'header',
+  SETUP:'setup',
+  PALETTE:'palette',
+  DATA:'data',
+  ALL:['header','setup','palette','data']
+}
+
+function Hgy(filepath,options) {
+  if (!(this instanceof Hgy)) return new Hgy(filepath,options);
+  if (options==undefined) options={};
+  this.options = options;
+  this.filepath=filepath;
+  this.header={};
+  this.setup={};
+  this.data=undefined;
+  this.lines=0;
+  this.state = SECTION.HEADER;
+  this.section = undefined;
+  this.sections = options.sections ||[SECTION.HEADER];
+  this.verbose=options.verbose||0;
+}
+
+Hgy.prototype.read = function (callback) {
+  var self=this;
+  lineReader.eachLine(this.filepath, {verbose:this.options.verbose}, function(line, last, reader, unused) {
+    if (self.verbose>1) print('>>',line);
+    self.lines++;
+    switch (line) {
+      case '[EndHeader]': 
+        if (self.verbose) print('EndHeader',reader.currentPosition() + '/'+ reader.size()); 
+        self.section=undefined;
+        self.update(SECTION.HEADER);
+        self.header.FileDescription.FileSize=reader.size();
+        if (contains(self.sections,SECTION.SETUP)) {
+          self.state = SECTION.SETUP;
+          reader.skipTo(self.header.FileDescription.SetupOffset);
+        } else { 
+          if (callback) callback(self); 
+          return false; 
+        } // finished
+        break;
+      case '[EndSetup]': 
+        if (self.verbose) print('EndSetup',reader.currentPosition()); 
+        self.section=undefined;
+        self.update(SECTION.SETUP);
+        if (contains(self.sections,SECTION.PALETTE)) {
+          self.state = SECTION.PALETTE;
+          reader.skipTo(self.header.FileDescription.PaletteOffset);
+        } else if (contains(self.sections,SECTION.DATA)) {
+          self.state = SECTION.DATA;
+          // Read a buffer
+          return {
+            offset : self.header.FileDescription.DataOffset,
+            length : self.header.FileDescription.FileSize-self.header.FileDescription.DataOffset,
+            type : 'array',
+            next : false,
+            callback: function (data) {
+                        print('DATA')
+                        self.data0=data;    // Original buffer
+                        var typ=self.header.Measures.Measure1.DataWordType,
+                            daw=self.header.Measures.Measure1.DataWordSize;
+                        if (typ == 'Signed' && daw==2) {
+                          self.data = Matrix({dtn:'Int16Array',
+                                              data:new Int16Array(data),
+                                              layout:321,
+                                              z:self.header.Coords.Coord1.Points,
+                                              x:self.header.Coords.Coord2.Points,
+                                              y:self.header.Coords.Coord3.Points});
+                                              // Matrix
+                          self._data=self.data.data;  // Typedarray !!
+                        }
+                      }
+          }; 
+          
+        } else { 
+          if (callback) callback(self); 
+          return false; 
+        } // finished
+        break;
+      default:
+        switch (self.state) {
+          case SECTION.HEADER:
+            if (line[0]=='[') {
+              section=trim(line,1,1);
+              if (self.header[section]==undefined) self.header[section]={};
+            } else if (line!='' && line[0]!=' ') {
+              var tokens = line.split('=');
+              self.header[section][tokens[0]]=tokens[1];
+            }
+            break;
+          case SECTION.SETUP:
+            if (line[0]=='[') {
+              section=trim(line,1,1);
+              if (self.setup[section]==undefined) self.setup[section]={};
+            } else if (line!='' && line[0]!=' ') {
+              var tokens = line.split('=');
+              self.setup[section][tokens[0]]=tokens[1];
+            }
+            break;
+        }      
+        break;
+    }
+  }, function (err) { self.error=err; if (!err) self.eof=true; if (callback) callback(self)});  
+}
+Hgy.prototype.update = function (section) {
+  switch (section) {
+    case SECTION.HEADER:
+      convert(this.header,'numeric');
+      this.points = [
+        this.header.Coords.Coord1.Points,
+        this.header.Coords.Coord2.Points,
+        this.header.Coords.Coord3.Points,        
+      ]
+      break;    
+    case SECTION.SETUP:
+      convert(this.setup,'numeric');
+      break;    
+    case SECTION.PALETTE:
+      convert(this.palette,'numeric');
+      break;    
+  }
+}
+module.exports.Hgy = Hgy;
+module.exports.SECTION = SECTION;
+};
+
+var Base64=Require('os/base64');
+module.exports = Require('plugins/hgy/hgy.js');
+if (typeof window != 'undefined') for(var p in module.exports) window[p]=module.exports[p];
+return module.exports;

@@ -1,0 +1,3076 @@
+var CoreModule = {};
+CoreModule['com/io']='com/io';
+CoreModule['com/pwgen']='com/pwgen.lw';
+CoreModule['assert']='os/assert';
+CoreModule['crypto']='os/crypto.rand';
+CoreModule['events']='os/events';
+CoreModule['path']='os/path';
+CoreModule['string_decoder']='os/string_decoder';
+CoreModule['util']='util';
+CoreModule['http']='http';
+CoreModule['deasync']='deasync';
+CoreModule['os']='os';
+CoreModule['net']='net';
+CoreModule['fs']='fs';
+CoreModule['stream']='';
+CoreModule['url']='';
+CoreModule['zlib']='';
+CoreModule['child_process']='';
+
+var BundleModuleCode=[];
+var BundleObjectCode=[];
+var BundleModules = [];
+var Fs = require("fs");
+if (typeof __dirname == 'undefined') __dirname = '';
+if (typeof __filename == 'undefined') __filename = 'plugins/matlab/jMatFile.js';
+//From compat.js
+var any = undefined;
+var empty = null;
+var none = null;
+var _ = undefined;
+var int = function (v) {return v|0};
+var div = function (a,b) {return a/b|0};
+var print = function (msg) {console.log(msg)};
+if (typeof global == 'undefined') global={};
+PATH=[process.cwd(),".","/home/sbosse/proj/workbook/src",""];
+function _isdir(path) {
+  var stats=Fs.statSync(path);
+  return stats && stats.isDirectory()};
+function _search(index,file) {
+  if (PATH.length==index) return file;
+  var path=PATH[index];
+  if (Fs.existsSync(path+"/"+file+".js")) return path+"/"+file+".js";
+  else if (Fs.existsSync(path+"/"+file) && !_isdir(path+"/"+file)) return path+"/"+file;
+  else return _search(index+1,file);
+ }
+var __library=arguments&&arguments[3];
+function Require(modupath) { 
+  var file,filepath;
+  if (BundleModules[modupath]) return BundleModules[modupath];
+  var exports={}; var module={exports:exports};
+  if (CoreModule[modupath]!=undefined) modupath=CoreModule[modupath];
+  if (modupath=='') return undefined;
+  if (BundleModuleCode[modupath]) BundleModuleCode[modupath](module,exports,global,process);
+  else if (BundleObjectCode[modupath]) BundleObjectCode[modupath](module,exports,global,process);
+  else { try { file=_search(0,modupath); module = require(file)}
+  catch (e) { var more="";
+   if ((e.name==="SyntaxError"||e.name==="TypeError") && file) {
+      var src=Fs.readFileSync(file,"utf8");
+      var Esprima = Require("parser/esprima");
+      try {
+        var ast = Esprima.parse(src, { tolerant: true, loc:true });
+        if (ast.errors && ast.errors.length>0) more = ", "+ast.errors[0];
+      } catch (e) {
+        if (e.lineNumber) more = ", in line "+e.lineNumber;
+      }
+   }
+   console.log("Require import of "+modupath+" ("+file+") failed: "+e+more);
+   // if (e.stack) console.log(e.stack);
+   throw e; // process.exit(-1);
+  }}
+  BundleModules[modupath]=module.exports||module;
+  return module.exports||module;};
+FilesEmbedded=global.FilesEmbedded = {};
+FileEmbedd=global.FileEmbedd = function (path,format) {};
+FileEmbedded=global.FileEmbedded = function (path,format) {return FilesEmbedded[path](format);};
+global.TARGET='node';
+
+BundleModuleCode['com/io']=function (module,exports,global,process){
+/**
+ **      ==================================
+ **      OOOO   OOOO OOOO  O      O   OOOO
+ **      O   O  O    O     O     O O  O   O
+ **      O   O  O    O     O     O O  O   O
+ **      OOOO   OOOO OOOO  O     OOO  OOOO
+ **      O   O     O    O  O    O   O O   O
+ **      O   O     O    O  O    O   O O   O
+ **      OOOO   OOOO OOOO  OOOO O   O OOOO
+ **      ==================================
+ **      BSSLAB, Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR.
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2020 BSSLAB
+ **    $CREATED:     sbosse on 3/28/15.
+ **    $VERSION:     1.7.1X
+ **
+ **    $INFO:
+ *
+ * This module encapsulates all IO operations (except networking) supporting
+ * node.js applications.
+ *
+ **    $ENDOFINFO
+ */
+
+if (global.TARGET=='node')  { 
+
+ /*
+  ************
+  ** Node.js
+  ************
+  */
+ var util = require('util');
+ var GetEnv = Require('os/getenv');
+ var Base64 = Require('os/base64');
+ var Fs = require('fs');
+ var os = require('os');
+ var child = require('child_process');
+
+ var stderr_fun = function (str) { process.stderr.write(str); };
+ var stdout_fun = function (str) { process.stdout.write(str); };
+
+ /*
+  ** node.js specific
+  */
+
+ var tracefile = undefined;
+ var tracing = true;
+
+ /**
+ * Open a module and append all exported properties to the current global object.
+ * (top-level scope)
+ */
+ global.open = function(name,as) {
+   var module = Require(name);
+   for (var p in module) {
+     global[p] = module[p];
+   };
+   if (as) global[as]=module;
+ }
+
+/*
+ ** node.js
+ */
+var io = {
+    checkOptions : function(options,defaultOptions) {
+      return Object.assign({}, defaultOptions||{}, options) },
+      
+    checkOption : function (option,defaultOption) { 
+      return option==undefined? defaultOption:option },
+
+    config: {
+        columns:undefined,
+        rows:undefined
+    },
+    /**************
+     ** FILE IO
+     ***************/
+    /**
+     *
+     * @param fd
+     */
+    close: function (fd) {
+        Fs.closeSync(fd);
+    },
+    /**
+     *
+     * @param path
+     */
+    exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /**
+     *
+     * @param path
+     */
+    file_exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /** Search a file by iterating global PATH variable.
+     *
+     * @param name  File name or partial (relative) path
+     */
+    file_search: function (name) {
+        // Expecting global PATH variable !?
+        if (this.file_exists(name)) return name; 
+        else if (typeof PATH !== 'undefined') {
+          for (var p in PATH) {
+            if (this.file_exists(PATH[p]+'/'+name)) return (PATH[p]+'/'+name);
+          }
+          return undefined;
+        } else return undefined;
+    },
+    /**
+     *
+     * @param path
+     * @returns {number}
+     */
+    file_size: function (path) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            return stat.size;
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param timekind a c m
+     * @returns {number}
+     */
+    file_time: function (path,timekind) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            switch (timekind) {
+                case 'a': return stat.atime.getTime()/1000;
+                case 'c': return stat.ctime.getTime()/1000;
+                case 'm': return stat.mtime.getTime()/1000;
+                default: return stat.mtime.getTime()/1000;
+            }
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param mode
+     * @returns {*}
+     */
+    open: function (path, mode) {
+        return Fs.openSync(path, mode);
+    },
+    /**
+     *
+     * @param fd
+     * @param len
+     * @param foff
+     */
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    /**
+     *
+     * @param path
+     * @returns {string|undefined}
+     */
+    read_file: function (path) {
+        try {
+            return Fs.readFileSync(path,'utf8');
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @returns {*}
+     */
+    read_file_bin: function (path) {
+        try {
+            return Fs.readFileSync(path);
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param fd
+     */
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {number}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return Fs.readSync(fd, buf, boff, len, foff);
+    },
+    /**
+     *
+     * @param fd
+     */
+    sync: function (fd) {
+        Fs.fsyncSync(fd);
+    },
+    
+    time: function () {
+      return Date.now()
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {number}
+     */
+    write: function (fd, data, foff) {
+        return Fs.writeSync(fd, data, foff);
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {number}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return Fs.writeSync(fd, buf, bpos, blen, foff);
+    },
+    /**
+     *
+     * @param path
+     * @param {string} buf
+     */
+    write_file: function (path,str) {
+        try {
+            Fs.writeFileSync(path, str, 'utf8');
+            return str.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @param buf
+     * @returns {*}
+     */
+    write_file_bin: function (path,buf) {
+        try {
+            Fs.writeFileSync(path, buf, 'binary');
+            return buf.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param fd
+     * @param {string} str
+     * @returns {number}
+     */
+    write_line: function (fd, str) {
+        return Fs.writeSync(fd, str+NL);
+    },
+
+    /****************
+     ** CONSOLE IO
+     ****************/
+    /**
+     *
+     * @param msg
+     */
+    debug: function (msg) {
+        console.error('Debug: ' + msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    err: function (msg) {
+        console.error('Error: ' + msg);
+        throw Error(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    fail: function (msg) {
+        console.error('Fatal Error: ' + msg);
+        process.exit(0);
+    },
+    /**
+     *
+     * @param obj
+     */
+    inspect: function (obj,depth) {return util.inspect(obj,{showHidden: false, 
+                                                            depth: depth?depth:2})},
+
+    /**
+     * 
+     */
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (!e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        if (where==undefined) this.out(e);
+        else this.out(where+': '+e);
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+     /**
+     *
+     * @param e
+     * @param where
+     */
+    sprintstack: function (e) {
+        var str='';
+        if (e==_ || !e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .replace(/^Object.eval\s*\(/gm, '')
+            .split('\n');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                if (str!='') str += '\n';
+                str += '  at '+line;
+            }
+        }
+        return str;
+    },
+   /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    out: function (msg) {
+        console.warn(msg)
+    },
+    /**
+     *
+     * @param msg
+     */
+    warn: function (msg) {
+        console.warn('Warning: ' + msg);
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+    /**
+     *
+     * @param msg
+     */
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            Fs.writeSync(tracefile, '[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        tracefile = Fs.openSync(path, 'w+');
+        if (tracefile != undefined) this.tracing = false;
+    },
+
+    /**************
+     ** Process control
+     ***************/
+    exit: function (n) {
+        process.exit(n);
+    },
+    /**
+     *
+     * @returns {*} RSS HEAP in kBytes {data,heap}
+     */
+    mem: function () {
+        var mem = process.memoryUsage();
+        return {data:(mem.rss/1024)|0,heap:(mem.heapUsed/1024)|0};
+    },
+    /****************************
+     ** Environment and Arguments
+     ****************************/
+    getenv: function (name, def) {
+        return GetEnv(name, def);
+    },
+    workdir: function () {
+        return this.getenv('PWD','');
+    },
+
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return process.argv;
+    },
+
+    sleep: function(delay) {
+      var start = new Date().getTime();
+      while (new Date().getTime() < start + delay);
+    },
+    
+    /**
+     *  Process management
+     */
+    fork: child.fork,
+    exec: child.exec,
+    spawn: child.spawn,
+
+    /**
+     * OS
+     */
+    hostname: os.hostname
+
+  };
+} else {
+ /*
+  ************
+  ** Browser
+  ************
+  */
+  var tracing = true;
+  var stderr_fun = function (str) { console.log(str); };
+  var stdout_fun = function (str) { console.log(str); };
+  var args=[];
+
+  /**
+  * Open a module and append all exported properties to the current global object.
+  * (top-level scope)
+  */
+  global.open = function(name,as) {
+    var module = Require(name);
+    for (var p in module) {
+      global[p] = module[p];
+    };
+    if (as) global[as]=module;
+  }
+  
+  var io = {
+    /*
+    ************
+    ** Browser
+    ************
+    */
+    /*
+     ** FILE IO
+     * TODO WebStorage
+     */
+    close: function (fd) {
+        return;
+    },
+    exists: function (path) {
+        return false;
+    },
+    open: function (path, mode) {
+        var fd = Fs.openSync(path, mode);
+        return fd;
+    },
+
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    read_file: function (path) {
+        return '';
+    },
+
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {*}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return -1;
+    },
+    sync: function (fd) {
+        return;
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {*}
+     */
+    write: function (fd, data, foff) {
+        return -1;
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {*}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return -1;
+    },
+
+    /*
+     ** CONSOLE IO
+     */
+    debug: function (msg) {
+        stderr_fun('Debug: ' + msg);
+    },
+    err: function (msg) {
+        stderr_fun('Error: ' + msg);
+        throw Error(msg);
+    },
+    fail: function (msg) {
+        stderr_fun('Fatal Error: ' + msg);
+    },
+    inspect: function (obj) {
+        return;
+    },
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        stderr_fun('Stack Trace');
+        stderr_fun('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                stderr_fun(line);
+            }
+        }
+        stderr_fun('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (where==undefined) stderr_fun(e);
+        else stderr_fun(where+': '+e);
+    },
+    /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    out: function (msg) {
+        stdout_fun(msg)
+    },
+    warn: function (msg) {
+        stderr_fun('Warning: ' + msg);
+    },
+
+
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            this.log('[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        return undefined;
+    },
+
+    exit: function (n) {
+        return;
+    },
+    getenv: function (name, def) {
+        return def;
+    },
+    workdir: function () {
+        return '';
+    },
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return args;
+    },
+    set_args: function (argv) {
+        args=argv;
+    },
+    inspect: function (o) {return '?'}
+  };
+}  
+module.exports = io;
+};
+BundleModuleCode['os/getenv']=function (module,exports,global,process){
+var util = require("util");
+var url = require("url");
+
+var fallbacksDisabled = false;
+
+function _value(varName, fallback) {
+  var value = process.env[varName];
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new Error('GetEnv.Nonexistent: ' + varName + ' does not exist ' +
+                      'and no fallback value provided.');
+    }
+    if (fallbacksDisabled) {
+      throw new Error('GetEnv.DisabledFallbacks: ' + varName + ' relying on fallback ' + 
+                      'when fallbacks have been disabled');
+    }
+    return '' + fallback;
+  }
+  return value;
+}
+
+var convert = {
+  string: function(value) {
+    return '' + value;
+  },
+  int: function(value) {
+    var isInt = value.match(/^-?\d+$/);
+    if (!isInt) {
+      throw new Error('GetEnv.NoInteger: ' + value + ' is not an integer.');
+    }
+
+    return +value;
+  },
+  float: function(value) {
+    var isInfinity = (+value === Infinity || +value === -Infinity);
+    if (isInfinity) {
+      throw new Error('GetEnv.Infinity: ' + value + ' is set to +/-Infinity.');
+    }
+
+    var isFloat = !(isNaN(value) || value === '');
+    if (!isFloat) {
+      throw new Error('GetEnv.NoFloat: ' + value + ' is not a number.');
+    }
+
+    return +value;
+  },
+  bool: function(value) {
+    var isBool = (value === 'true' || value === 'false');
+    if (!isBool) {
+      throw new Error('GetEnv.NoBoolean: ' + value + ' is not a boolean.');
+    }
+
+    return (value === 'true');
+  },
+  url: url.parse
+};
+
+function converter(type) {
+  return function(varName, fallback) {
+    if(typeof varName == 'string') { // default
+      var value = _value(varName, fallback);
+      return convert[type](value);
+    } else { // multibert!
+      return getenv.multi(varName);
+    }
+  };
+};
+
+var getenv = converter('string');
+
+Object.keys(convert).forEach(function(type) {
+  getenv[type] = converter(type);
+});
+
+getenv.array = function array(varName, type, fallback) {
+  type = type || 'string';
+  if (Object.keys(convert).indexOf(type) === -1) {
+    throw new Error('GetEnv.ArrayUndefinedType: Unknown array type ' + type);
+  }
+  var value = _value(varName, fallback);
+  return value.split(/\s*,\s*/).map(convert[type]);
+};
+
+getenv.multi = function multi(spec) {
+  var key, value;
+  var result = {};
+  for(var key in spec) {
+    var value = spec[key];
+    if(util.isArray(value)) { // default value & typecast
+      switch(value.length) {
+        case 1: // no default value
+        case 2: // no type casting
+          result[key] = getenv(value[0], value[1]); // dirty, when case 1: value[1] is undefined
+        break;
+        case 3: // with typecast
+          result[key] = getenv[value[2]](value[0], value[1]);
+          break;
+        default: // wtf?
+          throw('getenv.multi(): invalid spec');
+          break;
+      }
+    } else { // value or throw
+      result[key] = getenv(value);
+    }
+  }
+  return result;
+};
+
+getenv.disableFallbacks = function() {
+  fallbacksDisabled = true;
+};
+
+getenv.enableFallbacks = function() {
+  fallbacksDisabled = false;
+};
+
+module.exports = getenv;
+};
+BundleModuleCode['os/base64']=function (module,exports,global,process){
+var keyStr = "ABCDEFGHIJKLMNOP" +
+               "QRSTUVWXYZabcdef" +
+               "ghijklmnopqrstuv" +
+               "wxyz0123456789+/" +
+               "=";
+var Buffer=Require('buffer').Buffer;
+var Base64 = {
+  encode: function (input) {
+     input = escape(input);
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     do {
+        chr1 = input.charCodeAt(i++);
+        chr2 = input.charCodeAt(i++);
+        chr3 = input.charCodeAt(i++);
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < input.length);
+
+     return output;
+  },
+
+  encodeBuf: function (input) {
+     var output = "";
+     var NaN = output.charCodeAt(2);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var len = input.length;
+     do {
+        chr1 = input.readUInt8(i++);
+        chr2 = (i<len)?input.readUInt8(i++):NaN;
+        chr3 = (i<len)?input.readUInt8(i++):NaN;
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < len);
+
+     return output;
+  },
+
+  decode: function (input) {
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output = output + String.fromCharCode(chr1);
+
+        if (enc3 != 64) {
+           output = output + String.fromCharCode(chr2);
+        }
+        if (enc4 != 64) {
+           output = output + String.fromCharCode(chr3);
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return unescape(output);
+  },
+  decodeBuf: function (input) {
+     var len = input.length;
+     var buf = new Buffer(len);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var buflen = 0;
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+     buf.fill(0);
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        buf.writeUInt8(chr1,buflen);
+        buflen++;
+        if (enc3 != 64) {
+          buf.writeUInt8(chr2,buflen);
+          buflen++;
+        }
+        if (enc4 != 64) {
+            buf.writeUInt8(chr3,buflen);
+            buflen++;
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return buf.slice(0,buflen);
+  }
+
+};
+
+
+module.exports = Base64;
+};
+BundleModuleCode['com/path']=function (module,exports,global,process){
+var process = process || {};
+(function () {
+  "use strict";
+
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+var isWindows = process.platform === 'win32';
+var util = Require('util');
+
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+
+if (isWindows) {
+  // Regex to split a windows path into three parts: [*, device, slash,
+  // tail] windows-only
+  var splitDeviceRe =
+      /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
+
+  // Regex to split the tail part of the above into [*, dir, basename, ext]
+  var splitTailRe =
+      /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
+
+  // Function to split a filename into [root, dir, basename, ext]
+  // windows version
+  var splitPath = function(filename) {
+    // Separate device+slash from tail
+    var result = splitDeviceRe.exec(filename),
+        device = (result[1] || '') + (result[2] || ''),
+        tail = result[3] || '';
+    // Split the tail into dir, basename and extension
+    var result2 = splitTailRe.exec(tail),
+        dir = result2[1],
+        basename = result2[2],
+        ext = result2[3];
+    return [device, dir, basename, ext];
+  };
+
+  var normalizeUNCRoot = function(device) {
+    return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
+  };
+
+  // path.resolve([from ...], to)
+  // windows version
+  exports.resolve = function() {
+    var resolvedDevice = '',
+        resolvedTail = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1; i--) {
+      var path;
+      if (i >= 0) {
+        path = arguments[i];
+      } else if (!resolvedDevice) {
+        path = process.cwd();
+      } else {
+        // Windows has the concept of drive-specific current working
+        // directories. If we've resolved a drive letter but not yet an
+        // absolute path, get cwd for that drive. We're sure the device is not
+        // an unc path at this points, because unc paths are always absolute.
+        path = process.env['=' + resolvedDevice];
+        // Verify that a drive-local cwd was found and that it actually points
+        // to our drive. If not, default to the drive's root.
+        if (!path || path.substr(0, 3).toLowerCase() !==
+            resolvedDevice.toLowerCase() + '\\') {
+          path = resolvedDevice + '\\';
+        }
+      }
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      var result = splitDeviceRe.exec(path),
+          device = result[1] || '',
+          isUnc = device && device.charAt(1) !== ':',
+          isAbsolute = exports.isAbsolute(path),
+          tail = result[3];
+
+      if (device &&
+          resolvedDevice &&
+          device.toLowerCase() !== resolvedDevice.toLowerCase()) {
+        // This path points to another device so it is not applicable
+        continue;
+      }
+
+      if (!resolvedDevice) {
+        resolvedDevice = device;
+      }
+      if (!resolvedAbsolute) {
+        resolvedTail = tail + '\\' + resolvedTail;
+        resolvedAbsolute = isAbsolute;
+      }
+
+      if (resolvedDevice && resolvedAbsolute) {
+        break;
+      }
+    }
+
+    // Convert slashes to backslashes when `resolvedDevice` points to an UNC
+    // root. Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      resolvedDevice = normalizeUNCRoot(resolvedDevice);
+    }
+
+    // At this point the path should be resolved to a full absolute path,
+    // but handle relative paths to be safe (might happen when process.cwd()
+    // fails)
+
+    // Normalize the tail path
+
+    function f(p) {
+      return !!p;
+    }
+
+    resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/).filter(f),
+                                  !resolvedAbsolute).join('\\');
+
+    return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
+           '.';
+  };
+
+  // windows version
+  exports.normalize = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = device && device.charAt(1) !== ':',
+        isAbsolute = exports.isAbsolute(path),
+        tail = result[3],
+        trailingSlash = /[\\\/]$/.test(tail);
+
+    // If device is a drive letter, we'll normalize to lower case.
+    if (device && device.charAt(1) === ':') {
+      device = device[0].toLowerCase() + device.substr(1);
+    }
+
+    // Normalize the tail path
+    tail = normalizeArray(tail.split(/[\\\/]+/).filter(function(p) {
+      return !!p;
+    }), !isAbsolute).join('\\');
+
+    if (!tail && !isAbsolute) {
+      tail = '.';
+    }
+    if (tail && trailingSlash) {
+      tail += '\\';
+    }
+
+    // Convert slashes to backslashes when `device` points to an UNC root.
+    // Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      device = normalizeUNCRoot(device);
+    }
+
+    return device + (isAbsolute ? '\\' : '') + tail;
+  };
+
+  // windows version
+  exports.isAbsolute = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = !!device && device.charAt(1) !== ':';
+    // UNC paths are always absolute
+    return !!result[2] || isUnc;
+  };
+
+  // windows version
+  exports.join = function() {
+    function f(p) {
+      if (!util.isString(p)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      return p;
+    }
+
+    var paths = Array.prototype.filter.call(arguments, f);
+    var joined = paths.join('\\');
+
+    // Make sure that the joined path doesn't start with two slashes, because
+    // normalize() will mistake it for an UNC path then.
+    //
+    // This step is skipped when it is very clear that the user actually
+    // intended to point at an UNC path. This is assumed when the first
+    // non-empty string arguments starts with exactly two slashes followed by
+    // at least one more non-slash character.
+    //
+    // Note that for normalize() to treat a path as an UNC path it needs to
+    // have at least 2 components, so we don't filter for that here.
+    // This means that the user can use join to construct UNC paths from
+    // a server name and a share name; for example:
+    //   path.join('//server', 'share') -> '\\\\server\\share\')
+    if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
+      joined = joined.replace(/^[\\\/]{2,}/, '\\');
+    }
+
+    return exports.normalize(joined);
+  };
+
+  // path.relative(from, to)
+  // it will solve the relative path from 'from' to 'to', for instance:
+  // from = 'C:\\orandea\\test\\aaa'
+  // to = 'C:\\orandea\\impl\\bbb'
+  // The output of the function should be: '..\\..\\impl\\bbb'
+  // windows version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from);
+    to = exports.resolve(to);
+
+    // windows is not case sensitive
+    var lowerFrom = from.toLowerCase();
+    var lowerTo = to.toLowerCase();
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var toParts = trim(to.split('\\'));
+
+    var lowerFromParts = trim(lowerFrom.split('\\'));
+    var lowerToParts = trim(lowerTo.split('\\'));
+
+    var length = Math.min(lowerFromParts.length, lowerToParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (lowerFromParts[i] !== lowerToParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    if (samePartsLength == 0) {
+      return to;
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < lowerFromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('\\');
+  };
+
+  exports.sep = '\\';
+  exports.delimiter = ';';
+
+} else /* posix */ {
+
+  // Split a filename into [root, dir, basename, ext], unix version
+  // 'root' is just a slash, or nothing.
+  var splitPathRe =
+      /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+  var splitPath = function(filename) {
+    return splitPathRe.exec(filename).slice(1);
+  };
+
+  // path.resolve([from ...], to)
+  // posix version
+  exports.resolve = function() {
+    var resolvedPath = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+      var path = (i >= 0) ? arguments[i] : process.cwd();
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      resolvedPath = path + '/' + resolvedPath;
+      resolvedAbsolute = path.charAt(0) === '/';
+    }
+
+    // At this point the path should be resolved to a full absolute path, but
+    // handle relative paths to be safe (might happen when process.cwd() fails)
+
+    // Normalize the path
+    resolvedPath = normalizeArray(resolvedPath.split('/').filter(function(p) {
+      return !!p;
+    }), !resolvedAbsolute).join('/');
+
+    return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+  };
+
+  // path.normalize(path)
+  // posix version
+  exports.normalize = function(path) {
+    var isAbsolute = exports.isAbsolute(path),
+        trailingSlash = path[path.length - 1] === '/',
+        segments = path.split('/'),
+        nonEmptySegments = [];
+
+    // Normalize the path
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i]) {
+        nonEmptySegments.push(segments[i]);
+      }
+    }
+    path = normalizeArray(nonEmptySegments, !isAbsolute).join('/');
+
+    if (!path && !isAbsolute) {
+      path = '.';
+    }
+    if (path && trailingSlash) {
+      path += '/';
+    }
+
+    return (isAbsolute ? '/' : '') + path;
+  };
+
+  // posix version
+  exports.isAbsolute = function(path) {
+    return path.charAt(0) === '/';
+  };
+
+  // posix version
+  exports.join = function() {
+    var path = '';
+    for (var i = 0; i < arguments.length; i++) {
+      var segment = arguments[i];
+      if (!util.isString(segment)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      if (segment) {
+        if (!path) {
+          path += segment;
+        } else {
+          path += '/' + segment;
+        }
+      }
+    }
+    return exports.normalize(path);
+  };
+
+
+  // path.relative(from, to)
+  // posix version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from).substr(1);
+    to = exports.resolve(to).substr(1);
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var fromParts = trim(from.split('/'));
+    var toParts = trim(to.split('/'));
+
+    var length = Math.min(fromParts.length, toParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (fromParts[i] !== toParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < fromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('/');
+  };
+
+  exports.sep = '/';
+  exports.delimiter = ':';
+}
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+
+exports.exists = util.deprecate(function(path, callback) {
+  require('fs').exists(path, callback);
+}, 'path.exists is now called `fs.exists`.');
+
+
+exports.existsSync = util.deprecate(function(path) {
+  return require('fs').existsSync(path);
+}, 'path.existsSync is now called `fs.existsSync`.');
+
+
+if (isWindows) {
+  exports._makeLong = function(path) {
+    // Note: this will *probably* throw somewhere.
+    if (!util.isString(path))
+      return path;
+
+    if (!path) {
+      return '';
+    }
+
+    var resolvedPath = exports.resolve(path);
+
+    if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
+      // path is local filesystem path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\' + resolvedPath;
+    } else if (/^\\\\[^?.]/.test(resolvedPath)) {
+      // path is network UNC path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\UNC\\' + resolvedPath.substring(2);
+    }
+
+    return path;
+  };
+} else {
+  exports._makeLong = function(path) {
+    return path;
+  };
+}
+}());
+};
+BundleModuleCode['com/sprintf']=function (module,exports,global,process){
+(function(window) {
+    var re = {
+        not_string: /[^s]/,
+        number: /[diefg]/,
+        json: /[j]/,
+        not_json: /[^j]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function(parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && re.not_json.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                    break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                    break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                    break
+                    case "j":
+                        arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                    break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                    break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                    break
+                    case "g":
+                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
+                    break
+                    case "o":
+                        arg = arg.toString(8)
+                    break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                    break
+                    case "u":
+                        arg = arg >>> 0
+                    break
+                    case "x":
+                        arg = arg.toString(16)
+                    break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                    break
+                }
+                if (re.json.test(match[8])) {
+                    output[output.length] = arg
+                }
+                else {
+                    if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                        sign = is_positive ? "+" : "-"
+                        arg = arg.toString().replace(re.sign, "")
+                    }
+                    else {
+                        sign = ""
+                    }
+                    pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                    pad_length = match[6] - (sign + arg).length
+                    pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                    output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+                }
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function(fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            try {_fmt = _fmt.substring(match[0].length)} catch (e) {throw new SyntaxError("[sprintf] unexpected fromat")}
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function(fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+     */
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function() {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+})(typeof window === "undefined" ? this : window);
+};
+BundleModuleCode['plugins/matlab/jMatFile.js']=function (module,exports,global,process){
+/* https://github.com/fluffynukeit/jMatFile */
+/* @blab+ */
+/* Version 2.0 with data decompression support */
+
+var jBinary = Require('plugins/matlab/jbinary')
+var zlib    = require('zlib');
+
+var verbose = 0;
+// spec taken from 2014b matlab doc
+
+// Level 5 miMatrix interpretation
+
+var classLkup = [
+  'Reserved0',
+  'mxCELL_CLASS',
+  'mxSTRUCT_CLASS',
+  'mxOBJECT_CLASS',
+  'mxCHAR_CLASS',
+  'mxSPARSE_CLASS',
+  'mxDOUBLE_CLASS',
+  'mxSINGLE_CLASS',
+  'mxINT8_CLASS',
+  'mxUINT8_CLASS', 
+  'mxINT16_CLASS',
+  'mxUINT16_CLASS',
+  'mxINT32_CLASS',
+  'mxUINT32_CLASS',
+  'mxINT64_CLASS', 
+  'mxUINT64_CLASS'
+]
+
+var bytes2String = function (bytes) {
+  var str = ''
+  for (var i = 0; i < bytes.length && bytes[i] !== 0; i++) {
+    str += String.fromCharCode(bytes[i])
+  }
+  return str
+}
+
+var matrix = function (start, step, sizesRem, extractor) {
+  // determine what operation we need to perform.  Either retrieving data or
+  // recursing down dimensions further
+  var doSomething = (sizesRem.length === 1) ? extractor : matrix
+  var thisDim = sizesRem[0]
+  var retArray = new Array(thisDim)
+  for (var i = 0; i < retArray.length; i++) {
+    retArray[i] = doSomething(start + i*step, 
+                              step*thisDim,
+                              sizesRem.slice(1), 
+                              extractor)
+  }
+  return retArray
+}
+
+
+var numeric = function (re, im, size, logical, complex) {
+
+  var mkExtractor = function () {
+    if (logical)      { return function (pos) { return Boolean(re[pos])} }
+    else if (complex) { return function (pos) { return {re:re[pos], im:im[pos]} } }
+    else              { return function (pos) { return re[pos]} }
+  }
+  
+  var ex = mkExtractor()
+  return matrix(0, 1, size, ex)
+}
+
+var character = function (data, size) {
+  var ex = function (pos) { return String.fromCharCode(data[pos]) }
+  return matrix(0, 1, size, ex)
+}
+
+var structure = function(size, nameLength, fieldNames, fieldValues) {
+  // Field names are concatenated together in a single string with padding in
+  // between so that each is nameLength
+  var fieldNameArr = new Array(fieldNames.length/nameLength)
+  for (var i = 0; i < fieldNameArr.length; i++) {
+    var fieldName = bytes2String(fieldNames.subarray(i*nameLength, (i+1)*nameLength))
+    fieldNameArr[i] = fieldName
+  }
+  // With the field names collected, we can build the extractor function
+  var ex = function (pos) {
+    var struct = {}
+    for (var i = 0; i < fieldNameArr.length; i++) {
+      var index = pos*fieldNameArr.length + i
+      struct[fieldNameArr[i]] = fieldValues[index]
+    }
+    return struct
+  }
+  return matrix(0, 1, size, ex)
+}
+
+// NOTE: sparse matrices are always 2D and numeric
+var sparse = function (rowInfo, colInfo, re, im) {
+  var mat = {}
+  var getVal
+  if (im) {
+    getVal = function (ind) { return {re:re[ind], im:im[ind]} }
+  } else {
+    getVal = function (ind) { return re[ind] }
+  }
+
+  // Assume the matrix has dimension nr x nc
+  for (var col = 0; col < colInfo.length-1; col++) {
+    // Col info has length nc + 1.  Each value in colInfo is an index in the
+    // rowInfo, re, and im arrays.
+    for (var rowInd = colInfo[col]; rowInd < colInfo[col+1]; rowInd++) {
+      // The row of the matrix value is given by the entry in the rowInfo array
+      // looked up by the colInfo entry.  This row and all entries in rowInfo
+      // before the next entry in colInfo are associated with the same row.
+      var row = rowInfo[rowInd]
+      if (!mat[row]) {
+        mat[row] = {} // initialize as empty object if not done yet
+      }
+      mat[row][col] = getVal(rowInd)
+    }
+  }
+  return mat
+}
+
+var cell = function (size, matrixArray) {
+  // Cell arrays are just like real numeric arrays except that each element is
+  // of type miMatrix instead of a numeric primitive
+
+  var ex = function (pos) { return matrixArray[pos] }
+
+  return matrix(0, 1, size, ex)
+}
+
+var interpMiMatrix = function (ctx,raw) {
+if (verbose) console.log('interpMiMatrix',ctx,raw.length,raw[0].data.length,raw[1].data.length,raw[2].data.length,raw[3].data.length);
+  var miMat = {}
+  /*jslint bitwise: true */
+  var arrFlags = raw[0].data[0]
+  miMat.complex = Boolean(arrFlags & 0x0800)
+  miMat.global = Boolean(arrFlags & 0x0400)
+  miMat.logical = Boolean(arrFlags & 0x0200)
+  miMat.struct = false
+  miMat.sparse = false
+  miMat.cell = false
+  miMat.object = false
+  var classVal = arrFlags & 0xFF
+  var matClass = classLkup[classVal]
+  miMat.datatype = matClass;
+  // Size is small, so the convenience of a normal array makes sense
+  miMat.size = Array.prototype.slice.call(raw[1].data)
+  miMat.numel = miMat.size.reduce(function (a,b) { return a*b })
+  // Convention: scalars cannot be empty, but vectors can be
+  var isScalar = miMat.numel === 1 
+  var isVector = miMat.size.length === 2 && 
+                 (miMat.size[0] <= 1 || miMat.size[1] <= 1)
+  miMat.empty = miMat.numel === 0
+  miMat.name = bytes2String(raw[2].data)
+  // With standard stuff out of the way, interpret the class
+if (verbose) console.log(miMat,matClass);
+  switch (matClass) {
+    case 'mxSPARSE_CLASS':
+      // do sparse format here
+      miMat.value = sparse(raw[3].data, 
+                           raw[4].data, 
+                           raw[5].data, 
+                           raw[6] && raw[6].data || undefined) 
+      miMat.sparse = true
+      break;
+    case 'mxCHAR_CLASS':
+      // do string format here
+      miMat.value = character(raw[3].data, miMat.size)
+      if (isVector) { // Note: a scalar is always a vector also
+        miMat.string = bytes2String(raw[3].data)
+      }
+      break;
+    case 'mxCELL_CLASS':
+      // do cell format here
+      var cellValues = raw.splice(3).map(function (a) { return a.data[0] })
+      miMat.value = cell(miMat.size, cellValues)
+      miMat.cell = true
+      break;
+    case 'mxSTRUCT_CLASS':
+      // do struct here
+      var fieldValues = raw.slice(5).map(function (a) { return a.data[0] })
+      var fieldNameLength = raw[3].data[0]
+      var fieldNames = raw[4].data
+      miMat.value = structure(miMat.size, fieldNameLength, fieldNames, fieldValues)
+      miMat.struct = true
+      break;
+    case 'mxOBJECT_CLASS':
+      // do object here
+      // objects have the same format as structs except they also have a class
+      // name
+      miMat.class = bytes2String(raw[3].data)
+      miMat.object = true
+      var propValues = raw.slice(6).map(function (a) { return a.data[0] })
+      var propNameLength = raw[4].data[0]
+      var propNames = raw[5].data
+      miMat.value = structure(miMat.size, propNameLength, propNames, propValues)
+      break;
+    default:
+      // it's a numeric array
+      miMat.value = numeric(raw[3].data, 
+                            raw[4] && raw[4].data || undefined, 
+                            miMat.size, miMat.logical, miMat.complex)
+  }
+
+  // Ensure that the value is at least 2D.  Result could be empty 1D here if 
+  // first dimension is 0, such as with empty arrays
+  if (miMat.value.length === 0) {
+    miMat.value = [miMat.value]
+  }
+
+  // Convert the value to scalar or vector if appropriate
+  if (isScalar) {
+    miMat.scalar = miMat.value[0][0]
+  }
+  if (isVector && !miMat.sparse) {
+    // the vector property is used as an iterable array along either row or 
+    // column vectors.  Sparse vectors are not allowed because, presumably, their
+    // being sparse means storing them as an iterable array takes too much 
+    // memory
+    miMat.vector = 
+      (miMat.empty) ? [] : 
+      (miMat.size[0] === 1) ? miMat.value[0] 
+                            : miMat.value.map( function (cv) { return cv[0] })
+  }
+if (verbose) console.log('interpMiMatrix done');
+  return miMat
+  /*jslint bitwise: false */
+}
+
+var matConfig = {
+  'jBinary.all': 'mat',
+  header: { 
+    descriptiveText: ['string0', 116],
+    subsysDataOffset: ['string0', 8],
+    version: 'int16',
+    endianIndicator: ['string', 2],
+    needsSwap: function (ctx) {
+      return ctx.endianIndicator !== 'MI'
+    }
+  },
+
+  miINT8    : 'int8',
+  miUINT8   : 'uint8',
+  miINT16   : 'int16',
+  miUINT16  : 'uint16',
+  miINT32   : 'int32',
+  miUINT32  : 'uint32',
+  miSINGLE  : 'float',
+  miDOUBLE  : 'double',
+  miINT64   : 'int64',
+  miUINT64  : 'uint64',
+  miUTF8    : ['string', 'numBytes'],
+  
+  
+  miCOMPRESSED : jBinary.Template({
+    baseType:     ['blob', function (ctx) {
+      return ctx.tag.numBytes // read data elements to end of mlCOMRPESSED
+    }],
+    read: function (ctx) {
+if (verbose) console.log('miCOMPRESSED.read',ctx);
+      var data = this.baseRead()
+if (verbose) console.log('miCOMPRESSED.read data',data)
+try {
+      var decomp = zlib.inflateSync(data); } catch (e) { print(e) }
+if (verbose) console.log('miCOMPRESSED.read',decomp.length,this.view._littleEndian)
+      var ma = new jBinary(decomp, matConfig);
+      ma.view._littleEndian = this.view._littleEndian;
+if (verbose) console.log('miCOMPRESSED.read',ma)
+try  {
+      var data1 = ma.read('dataElement'); } catch (e) { print(e) }
+if (verbose) console.log('miCOMPRESSED.read')
+
+      return data1;
+    }
+  }),
+  
+  miMATRIX  : jBinary.Template({
+    baseType: ['bitLengthArray', 'dataElement', function (ctx) {
+if (verbose) console.log('miMATRIX.baseType',this,ctx);
+      return ctx?ctx.tag.numBytes:this.view.buffer.byteLength // read data elements to end of miMATRIX
+    }],
+    read: function (ctx) {
+if (verbose) console.log('miMATRIX.read',ctx);
+      var rawMiMatrix = this.baseRead()
+      var mat = interpMiMatrix(ctx,rawMiMatrix);
+if (verbose) console.log('miMATRIX.read .. #',ctx,mat.size);
+      return mat;
+    }
+  }),
+
+  tag: {
+    type: ['enum', 'uint16', [
+           'Reserved0',
+           'miINT8',
+           'miUINT8',
+           'miINT16', 
+           'miUINT16', 
+           'miINT32', 
+           'miUINT32',
+           'miSINGLE',
+           'Reserved8',
+           'miDOUBLE',
+           'Reserved10',
+           'Reserved11',
+           'miINT64', 
+           'miUINT64',
+           'miMATRIX',
+           'miCOMPRESSED',
+           'miUTF8',
+           'miUTF16',
+           'miUTF32'
+           ]
+          ],
+    t16: 'uint16',
+    smallFormat: function (ctx) {
+      return ctx.t16 > 0
+    },
+    numBytes: function (ctx) {
+if (verbose) console.log('tag.numBytes');
+      if (ctx.smallFormat) {
+        return ctx.t16
+      } else {
+        return this.binary.read('uint32')
+      }
+    }
+  },
+
+  tagData: jBinary.Template({
+      baseType: ['array', 'type'],
+      read: function (ctx) {
+        var elems = []
+        var view = this.binary.view
+        var b = view.buffer;
+        var s = view.tell();
+        var l = ctx.tag.numBytes;
+        // length used (m) should never cause reading outside of buffer length
+        var m = (s + l > view.byteLength) ? view.byteLength - s : l
+if (verbose) console.log('tagData.read',ctx,s,m,l,view.byteLength);
+        switch (ctx.tag.type) {
+          // If the underlying data can be mapped on a typed array, do it and
+          // skip ahead in buffer.  Huge processing savings for big arrays.
+          case 'miINT8':  elems = new Int8Array(new Uint8Array(b.slice(s,s+m)).buffer);       view.skip(m); break;
+          case 'miUINT8': elems = new Uint8Array(new Uint8Array(b.slice(s,s+m)).buffer);      view.skip(m); break; 
+          case 'miINT16': elems = new Int16Array(new Uint8Array(b.slice(s,s+m)).buffer);      view.skip(m); break;
+          case 'miUINT16':elems = new Uint16Array(new Uint8Array(b.slice(s,s+m)).buffer);     view.skip(m); break;
+          case 'miINT32': elems = new Int32Array(new Uint8Array(b.slice(s,s+m)).buffer);      view.skip(m); break;
+          case 'miUINT32':elems = new Uint32Array(new Uint8Array(b.slice(s,s+m)).buffer);     view.skip(m); break;
+          case 'miSINGLE':elems = new Float32Array(new Uint8Array(b.slice(s,s+m)).buffer);    view.skip(m); break;
+          case 'miDOUBLE':elems = new Float64Array(new Uint8Array(b.slice(s,s+m)).buffer);    view.skip(m); break;
+
+          default: 
+            while (view.tell() < s + m) {
+              elems.push(this.binary.read(ctx.tag.type))
+            }
+        } 
+if (verbose) console.log('tagData.read #elems',elems.length);
+        return elems
+      }
+  }),
+
+  dataElement: {
+    tag: 'tag',
+    data: 'tagData',
+    // Add padding so mat file data elements fall on 64 bit boundaries
+    _padding: ['skip', function (ctx) {
+      return (8 - this.binary.tell() % 8) % 8
+    }]
+
+  },
+
+  
+  bitLengthArray: jBinary.Template({
+    params: ['element', 'sizeFn'],
+    setParams: function () { this.baseType = ['array', this.element] },
+    read: function (ctx) {
+      var items = []
+      var view = this.binary.view
+      var startPos = view.tell()
+      var len = this.sizeFn(ctx)
+if (verbose) console.log('bitLengthArray.read',ctx,startPos,len,view.byteLength,this.element);
+      while (view.tell() < startPos + len && view.tell() < view.byteLength) {
+if (verbose) console.log('bitLengthArray.read.read',startPos,this.element);
+        items.push(this.binary.read(this.element))
+      }
+if (verbose) console.log('bitLengthArray.read .. #',items.length);
+      return items
+    }
+  }),
+
+  variable: jBinary.Template({
+    getBaseType : function (ctx) {
+      var typ = matConfig.tag.type[2][this.binary.peek('uint16')];
+if (verbose) console.log('variable.getBaseType',ctx,typ);
+      return { tag:'tag', data: typ}
+    },
+    setParams: function () { 
+if (verbose) console.log('variable.setParams');
+      this.baseType = { tag:'tag', data: 'miMATRIX'}
+    },
+    read: function (ctx) {
+if (verbose) console.log('variable.read',ctx);
+      return this.baseRead().data
+    }
+  }),
+
+
+  mat: {
+    header: 'header',
+    _setEndian: function (ctx) {
+      this.view._littleEndian = ctx.header.needsSwap
+    },
+    variables: ['bitLengthArray', 'variable', function () {
+      var view = this.binary.view
+      return view.byteLength - view.tell() // read elements to end of file (end of view)
+    }]
+  },
+  
+}
+
+module.exports = {
+  decode : function (buffer) {
+    var binary = new jBinary(buffer,matConfig);
+    return binary.read('mat');
+  },
+  jMatFile:matConfig,
+  jBinary:jBinary,
+}
+
+};
+BundleModuleCode['plugins/matlab/jbinary']=function (module,exports,global,process){
+!function(factory) {
+    var global = this;
+    module.exports = factory(global, Require("plugins/matlab/jdataview"));
+}(function(global, jDataView) {
+    "use strict";
+    function is(obj, Ctor) {
+        return Ctor && obj instanceof Ctor;
+    }
+    function extend(obj) {
+        for (var i = 1, length = arguments.length; length > i; ++i) {
+            var source = arguments[i];
+            for (var prop in source) void 0 !== source[prop] && (obj[prop] = source[prop]);
+        }
+        return obj;
+    }
+    function inherit(obj) {
+        return arguments[0] = _inherit(obj), extend.apply(null, arguments);
+    }
+    function toValue(obj, binary, value) {
+        return is(value, Function) ? value.call(obj, binary.contexts[0]) : value;
+    }
+    function promising(func) {
+        return function() {
+            var args = arguments, lastArgsIndex = args.length - 1, lastFuncIndex = func.length - 1, callback = args[lastArgsIndex];
+            if (args.length = lastFuncIndex + 1, !is(callback, Function)) {
+                var self = this;
+                return new Promise(function(resolveFn, rejectFn) {
+                    args[lastFuncIndex] = function(err, res) {
+                        return err ? rejectFn(err) : resolveFn(res);
+                    }, func.apply(self, args);
+                });
+            }
+            args[lastArgsIndex] = void 0, args[lastFuncIndex] = callback, func.apply(this, args);
+        };
+    }
+    function jBinary(view, typeSet) {
+        return is(view, jBinary) ? view.as(typeSet) : (is(view, jDataView) || (view = new jDataView(view, void 0, void 0, typeSet ? typeSet["jBinary.littleEndian"] : void 0)), 
+        is(this, jBinary) ? (this.view = view, this.view.seek(0), this.contexts = [], this.as(typeSet, !0)) : new jBinary(view, typeSet));
+    }
+    function Type(config) {
+        return inherit(Type.prototype, config);
+    }
+    function Template(config) {
+        return inherit(Template.prototype, config, {
+            createProperty: function() {
+                var property = (config.createProperty || Template.prototype.createProperty).apply(this, arguments);
+                return property.getBaseType && (property.baseType = property.binary.getType(property.getBaseType(property.binary.contexts[0]))), 
+                property;
+            }
+        });
+    }
+    "atob" in global && "btoa" in global || !function() {
+        function b(l) {
+            var g, j, e, k, h, f;
+            for (e = l.length, j = 0, g = ""; e > j; ) {
+                if (k = 255 & l.charCodeAt(j++), j == e) {
+                    g += a.charAt(k >> 2), g += a.charAt((3 & k) << 4), g += "==";
+                    break;
+                }
+                if (h = l.charCodeAt(j++), j == e) {
+                    g += a.charAt(k >> 2), g += a.charAt((3 & k) << 4 | (240 & h) >> 4), g += a.charAt((15 & h) << 2), 
+                    g += "=";
+                    break;
+                }
+                f = l.charCodeAt(j++), g += a.charAt(k >> 2), g += a.charAt((3 & k) << 4 | (240 & h) >> 4), 
+                g += a.charAt((15 & h) << 2 | (192 & f) >> 6), g += a.charAt(63 & f);
+            }
+            return g;
+        }
+        function c(m) {
+            var l, k, h, f, j, e, g;
+            for (e = m.length, j = 0, g = ""; e > j; ) {
+                do l = d[255 & m.charCodeAt(j++)]; while (e > j && -1 == l);
+                if (-1 == l) break;
+                do k = d[255 & m.charCodeAt(j++)]; while (e > j && -1 == k);
+                if (-1 == k) break;
+                g += String.fromCharCode(l << 2 | (48 & k) >> 4);
+                do {
+                    if (h = 255 & m.charCodeAt(j++), 61 == h) return g;
+                    h = d[h];
+                } while (e > j && -1 == h);
+                if (-1 == h) break;
+                g += String.fromCharCode((15 & k) << 4 | (60 & h) >> 2);
+                do {
+                    if (f = 255 & m.charCodeAt(j++), 61 == f) return g;
+                    f = d[f];
+                } while (e > j && -1 == f);
+                if (-1 == f) break;
+                g += String.fromCharCode((3 & h) << 6 | f);
+            }
+            return g;
+        }
+        var a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", d = [ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, -1, -1, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1, -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1, -1, -1, -1 ];
+        global.btoa || (global.btoa = b), global.atob || (global.atob = c);
+    }();
+    var Promise = global.Promise || require("es6-promise").Promise, _inherit = Object.create, proto = jBinary.prototype, defaultTypeSet = proto.typeSet = {};
+    proto.toValue = function(value) {
+        return toValue(this, this, value);
+    }, proto._named = function(func, name, offset) {
+        return func.displayName = name + " @ " + (void 0 !== offset ? offset : this.view.tell()), 
+        func;
+    };
+    var defineProperty = Object.defineProperty, cacheKey = "jBinary.Cache", cacheId = 0;
+    proto._getCached = function(obj, valueAccessor, allowVisible) {
+        if (obj.hasOwnProperty(this.cacheKey)) return obj[this.cacheKey];
+        var value = valueAccessor.call(this, obj);
+        return defineProperty(obj, this.cacheKey, {
+            value: value
+        }, allowVisible), value;
+    }, proto.getContext = function(filter) {
+        switch (typeof filter) {
+          case "undefined":
+            filter = 0;
+
+          case "number":
+            return this.contexts[filter];
+
+          case "string":
+            return this.getContext(function(context) {
+                return filter in context;
+            });
+
+          case "function":
+            for (var i = 0, length = this.contexts.length; length > i; i++) {
+                var context = this.contexts[i];
+                if (filter.call(this, context)) return context;
+            }
+        }
+    }, proto.inContext = function(newContext, callback) {
+        this.contexts.unshift(newContext);
+        var result = callback.call(this);
+        return this.contexts.shift(), result;
+    }, Type.prototype = {
+        inherit: function(args, getType) {
+            function withProp(name, callback) {
+                var value = _type[name];
+                value && (type || (type = inherit(_type)), callback.call(type, value), type[name] = null);
+            }
+            var type, _type = this;
+            return withProp("params", function(params) {
+                for (var i = 0, length = params.length; length > i; i++) this[params[i]] = args[i];
+            }), withProp("setParams", function(setParams) {
+                setParams.apply(this, args);
+            }), withProp("typeParams", function(typeParams) {
+                for (var i = 0, length = typeParams.length; length > i; i++) {
+                    var param = typeParams[i], descriptor = this[param];
+                    descriptor && (this[param] = getType(descriptor));
+                }
+            }), withProp("resolve", function(resolve) {
+                resolve.call(this, getType);
+            }), type || _type;
+        },
+        createProperty: function(binary) {
+            return inherit(this, {
+                binary: binary,
+                view: binary.view
+            });
+        },
+        toValue: function(val, allowResolve) {
+            return allowResolve !== !1 && "string" == typeof val ? this.binary.getContext(val)[val] : toValue(this, this.binary, val);
+        }
+    }, jBinary.Type = Type, Template.prototype = inherit(Type.prototype, {
+        setParams: function() {
+            this.baseType && (this.typeParams = [ "baseType" ].concat(this.typeParams || []));
+        },
+        baseRead: function() {
+            return this.binary.read(this.baseType);
+        },
+        baseWrite: function(value) {
+            return this.binary.write(this.baseType, value);
+        }
+    }), extend(Template.prototype, {
+        read: Template.prototype.baseRead,
+        write: Template.prototype.baseWrite
+    }), jBinary.Template = Template, proto.as = function(typeSet, modifyOriginal) {
+        var binary = modifyOriginal ? this : inherit(this);
+        return typeSet = typeSet || defaultTypeSet, binary.typeSet = typeSet === defaultTypeSet || defaultTypeSet.isPrototypeOf(typeSet) ? typeSet : inherit(defaultTypeSet, typeSet), 
+        binary.cacheKey = cacheKey, binary.cacheKey = binary._getCached(typeSet, function() {
+            return cacheKey + "." + ++cacheId;
+        }, !0), binary;
+    }, proto.seek = function(position, callback) {
+        if (position = this.toValue(position), void 0 !== callback) {
+            var oldPos = this.view.tell();
+            this.view.seek(position);
+            var result = callback.call(this);
+            return this.view.seek(oldPos), result;
+        }
+        return this.view.seek(position);
+    }, proto.tell = function() {
+        return this.view.tell();
+    }, proto.skip = function(offset, callback) {
+        return this.seek(this.tell() + this.toValue(offset), callback);
+    }, proto.slice = function(start, end, forceCopy) {
+        return new jBinary(this.view.slice(start, end, forceCopy), this.typeSet);
+    }, proto._getType = function(type, args) {
+        switch (typeof type) {
+          case "string":
+            if (!(type in this.typeSet)) throw new ReferenceError("Unknown type: " + type);
+            return this._getType(this.typeSet[type], args);
+
+          case "number":
+            return this._getType(defaultTypeSet.bitfield, [ type ]);
+
+          case "object":
+            if (is(type, Type)) {
+                var binary = this;
+                return type.inherit(args || [], function(type) {
+                    return binary.getType(type);
+                });
+            }
+            return is(type, Array) ? this._getCached(type, function(type) {
+                return this.getType(type[0], type.slice(1));
+            }, !0) : this._getCached(type, function(structure) {
+                return this.getType(defaultTypeSet.object, [ structure ]);
+            }, !1);
+        }
+    }, proto.getType = function(type, args) {
+        var resolvedType = this._getType(type, args);
+        return resolvedType && !is(type, Type) && (resolvedType.name = "object" == typeof type ? is(type, Array) ? type[0] + "(" + type.slice(1).join(", ") + ")" : "object" : String(type)), 
+        resolvedType;
+    }, proto._action = function(type, offset, _callback) {
+        if (void 0 !== type) {
+            type = this.getType(type);
+            var callback = this._named(function() {
+                return _callback.call(this, type.createProperty(this), this.contexts[0]);
+            }, "[" + type.name + "]", offset);
+            return void 0 !== offset ? this.seek(offset, callback) : callback.call(this);
+        }
+    }, proto.read = function(type, offset) {
+        return this._action(type, offset, function(prop, context) {
+            return prop.read(context);
+        });
+    }, proto.readAll = function() {
+        return this.read("jBinary.all", 0);
+    }, proto.peek = function(type) {
+        var offset = this.tell();
+        return this._action(type, offset, function(prop, context) {
+            return prop.read(context);
+        });
+    }, proto.write = function(type, data, offset) {
+        return this._action(type, offset, function(prop, context) {
+            var start = this.tell();
+            return prop.write(data, context), this.tell() - start;
+        });
+    }, proto.writeAll = function(data) {
+        return this.write("jBinary.all", data, 0);
+    }, function(simpleType, dataTypes) {
+        for (var i = 0, length = dataTypes.length; length > i; i++) {
+            var dataType = dataTypes[i];
+            defaultTypeSet[dataType.toLowerCase()] = inherit(simpleType, {
+                dataType: dataType
+            });
+        }
+    }(Type({
+        params: [ "littleEndian" ],
+        read: function() {
+            return this.view["get" + this.dataType](void 0, this.littleEndian);
+        },
+        write: function(value) {
+            this.view["write" + this.dataType](value, this.littleEndian);
+        }
+    }), [ "Uint8", "Uint16", "Uint32", "Uint64", "Int8", "Int16", "Int32", "Int64", "Float32", "Float64", "Char" ]), 
+    extend(defaultTypeSet, {
+        "byte": defaultTypeSet.uint8,
+        "float": defaultTypeSet.float32,
+        "double": defaultTypeSet.float64
+    }), defaultTypeSet.array = Template({
+        params: [ "baseType", "length" ],
+        read: function() {
+            var length = this.toValue(this.length);
+            if (this.baseType === defaultTypeSet.uint8) return this.view.getBytes(length, void 0, !0, !0);
+            var results;
+            if (void 0 !== length) {
+                results = new Array(length);
+                for (var i = 0; length > i; i++) results[i] = this.baseRead();
+            } else {
+                var end = this.view.byteLength;
+                for (results = []; this.binary.tell() < end; ) results.push(this.baseRead());
+            }
+            return results;
+        },
+        write: function(values) {
+            if (this.baseType === defaultTypeSet.uint8) return this.view.writeBytes(values);
+            for (var i = 0, length = values.length; length > i; i++) this.baseWrite(values[i]);
+        }
+    }), defaultTypeSet.binary = Template({
+        params: [ "length", "typeSet" ],
+        read: function() {
+            var startPos = this.binary.tell(), endPos = this.binary.skip(this.toValue(this.length)), view = this.view.slice(startPos, endPos);
+            return new jBinary(view, this.typeSet);
+        },
+        write: function(binary) {
+            this.binary.write("blob", binary.read("blob", 0));
+        }
+    }), defaultTypeSet.bitfield = Type({
+        params: [ "bitSize" ],
+        read: function() {
+            return this.view.getUnsigned(this.bitSize);
+        },
+        write: function(value) {
+            this.view.writeUnsigned(value, this.bitSize);
+        }
+    }), defaultTypeSet.blob = Type({
+        params: [ "length" ],
+        read: function() {
+            return this.view.getBytes(this.toValue(this.length));
+        },
+        write: function(bytes) {
+            this.view.writeBytes(bytes, !0);
+        }
+    }), defaultTypeSet["const"] = Template({
+        params: [ "baseType", "value", "strict" ],
+        read: function() {
+            var value = this.baseRead();
+            if (this.strict && value !== this.value) {
+                if (is(this.strict, Function)) return this.strict(value);
+                throw new TypeError("Unexpected value (" + value + " !== " + this.value + ").");
+            }
+            return value;
+        },
+        write: function(value) {
+            this.baseWrite(this.strict || void 0 === value ? this.value : value);
+        }
+    }), defaultTypeSet["enum"] = Template({
+        params: [ "baseType", "matches" ],
+        setParams: function(baseType, matches) {
+            this.backMatches = {};
+            for (var key in matches) this.backMatches[matches[key]] = key;
+        },
+        read: function() {
+            var value = this.baseRead();
+            return value in this.matches ? this.matches[value] : value;
+        },
+        write: function(value) {
+            this.baseWrite(value in this.backMatches ? this.backMatches[value] : value);
+        }
+    }), defaultTypeSet.extend = Type({
+        setParams: function() {
+            this.parts = arguments;
+        },
+        resolve: function(getType) {
+            for (var parts = this.parts, length = parts.length, partTypes = new Array(length), i = 0; length > i; i++) partTypes[i] = getType(parts[i]);
+            this.parts = partTypes;
+        },
+        read: function() {
+            var parts = this.parts, obj = this.binary.read(parts[0]);
+            return this.binary.inContext(obj, function() {
+                for (var i = 1, length = parts.length; length > i; i++) extend(obj, this.read(parts[i]));
+            }), obj;
+        },
+        write: function(obj) {
+            var parts = this.parts;
+            this.binary.inContext(obj, function() {
+                for (var i = 0, length = parts.length; length > i; i++) this.write(parts[i], obj);
+            });
+        }
+    }), defaultTypeSet["if"] = Template({
+        params: [ "condition", "trueType", "falseType" ],
+        typeParams: [ "trueType", "falseType" ],
+        getBaseType: function() {
+            return this.toValue(this.condition) ? this.trueType : this.falseType;
+        }
+    }), defaultTypeSet.if_not = defaultTypeSet.ifNot = Template({
+        setParams: function(condition, falseType, trueType) {
+            this.baseType = [ "if", condition, trueType, falseType ];
+        }
+    }), defaultTypeSet.lazy = Template({
+        marker: "jBinary.Lazy",
+        params: [ "innerType", "length" ],
+        getBaseType: function() {
+            return [ "binary", this.length, this.binary.typeSet ];
+        },
+        read: function() {
+            var accessor = function(newValue) {
+                return 0 === arguments.length ? "value" in accessor ? accessor.value : accessor.value = accessor.binary.read(accessor.innerType) : extend(accessor, {
+                    wasChanged: !0,
+                    value: newValue
+                }).value;
+            };
+            return accessor[this.marker] = !0, extend(accessor, {
+                binary: extend(this.baseRead(), {
+                    contexts: this.binary.contexts.slice()
+                }),
+                innerType: this.innerType
+            });
+        },
+        write: function(accessor) {
+            accessor.wasChanged || !accessor[this.marker] ? this.binary.write(this.innerType, accessor()) : this.baseWrite(accessor.binary);
+        }
+    }), defaultTypeSet.object = Type({
+        params: [ "structure", "proto" ],
+        resolve: function(getType) {
+            var structure = {};
+            for (var key in this.structure) structure[key] = is(this.structure[key], Function) ? this.structure[key] : getType(this.structure[key]);
+            this.structure = structure;
+        },
+        read: function() {
+            var self = this, structure = this.structure, output = this.proto ? inherit(this.proto) : {};
+            return this.binary.inContext(output, function() {
+                for (var key in structure) this._named(function() {
+                    var value = is(structure[key], Function) ? structure[key].call(self, output) : this.read(structure[key]);
+                    void 0 !== value && (output[key] = value);
+                }, key).call(this);
+            }), output;
+        },
+        write: function(data) {
+            var self = this, structure = this.structure;
+            this.binary.inContext(data, function() {
+                for (var key in structure) this._named(function() {
+                    is(structure[key], Function) ? data[key] = structure[key].call(self, data) : this.write(structure[key], data[key]);
+                }, key).call(this);
+            });
+        }
+    }), defaultTypeSet.skip = Type({
+        params: [ "length" ],
+        read: function() {
+            this.view.skip(this.toValue(this.length));
+        },
+        write: function() {
+            this.read();
+        }
+    }), defaultTypeSet.string = Template({
+        params: [ "length", "encoding" ],
+        read: function() {
+            return this.view.getString(this.toValue(this.length), void 0, this.encoding);
+        },
+        write: function(value) {
+            this.view.writeString(value, this.encoding);
+        }
+    }), defaultTypeSet.string0 = Type({
+        params: [ "length", "encoding" ],
+        read: function() {
+            var view = this.view, maxLength = this.length;
+            if (void 0 === maxLength) {
+                var code, startPos = view.tell(), length = 0;
+                for (maxLength = view.byteLength - startPos; maxLength > length && (code = view.getUint8()); ) length++;
+                var string = view.getString(length, startPos, this.encoding);
+                return maxLength > length && view.skip(1), string;
+            }
+            return view.getString(maxLength, void 0, this.encoding).replace(/\0.*$/, "");
+        },
+        write: function(value) {
+            var view = this.view, zeroLength = void 0 === this.length ? 1 : this.length - value.length;
+            view.writeString(value, void 0, this.encoding), zeroLength > 0 && (view.writeUint8(0), 
+            view.skip(zeroLength - 1));
+        }
+    });
+    var ReadableStream = !0 && require("stream").Readable;
+    jBinary.loadData = function(data, typeSet) {
+      return new jBinary(data, typeSet);
+    }, 
+    jBinary.loadDataAsync= promising(function(source, callback) {
+        var dataParts;
+        if (is(source, ReadableStream)) {
+            var buffers = [];
+            source.on("readable", function() {
+                buffers.push(this.read());
+            }).on("end", function() {
+                callback(null, Buffer.concat(buffers));
+            }).on("error", callback);
+        } else if ("string" != typeof source) callback(new TypeError("Unsupported source type.")); else if (dataParts = source.match(/^data:(.+?)(;base64)?,(.*)$/)) try {
+            var isBase64 = dataParts[2], content = dataParts[3];
+            callback(null, isBase64 && jDataView.prototype.compatibility.NodeBuffer ? new Buffer(content, "base64") : (isBase64 ? atob : decodeURIComponent)(content));
+        } catch (e) {
+            console.log(e)
+            callback(e);
+        } else {
+            /^(https?):\/\//.test(source) ? require("request").get({
+                uri: source,
+                encoding: null
+            }, function(error, response, body) {
+                if (!error && 200 !== response.statusCode) {
+                    var statusText = require("http").STATUS_CODES[response.statusCode];
+                    error = new Error("HTTP Error #" + response.statusCode + ": " + statusText);
+                }
+                callback(error, body);
+            }) : require("fs").readFile(source, callback);
+        }
+    }), 
+    jBinary.load = promising(function(source, typeSet, callback) {
+        var whenData = jBinary.loadDataAsync(source);
+        jBinary.load.getTypeSet(source, typeSet, function(typeSet) {
+            whenData.then(function(data) {
+                callback(null, new jBinary(data, typeSet));
+            }, callback);
+        });
+    }), jBinary.load.getTypeSet = function(source, typeSet, callback) {
+        callback(typeSet);
+    }, proto._toURI = function(type) {
+        var string = this.seek(0, function() {
+            return this.view.getString(void 0, void 0, this.view._isNodeBuffer ? "base64" : "binary");
+        });
+        return "data:" + type + ";base64," + (this.view._isNodeBuffer ? string : btoa(string));
+    }, proto._mimeType = function(mimeType) {
+        return mimeType || this.typeSet["jBinary.mimeType"] || "application/octet-stream";
+    }, proto.toURI = function(mimeType) {
+        return this._toURI(this._mimeType(mimeType));
+    };
+    var WritableStream = !0 && require("stream").Writable;
+    return proto.saveAs = promising(function(dest, mimeType, callback) {
+        if ("string" == typeof dest) {
+            var buffer = this.read("blob", 0);
+            is(buffer, Buffer) || (buffer = new Buffer(buffer)), require("fs").writeFile(dest, buffer, callback);
+        } else is(dest, WritableStream) ? dest.write(this.read("blob", 0), callback) : callback(new TypeError("Unsupported storage type."));
+    }), jBinary;
+});
+};
+BundleModuleCode['plugins/matlab/jdataview']=function (module,exports,global,process){
+!function(factory) {
+    var global = this;
+    module.exports = factory(global);
+}(function(global) {
+    "use strict";
+    function is(obj, Ctor) {
+        return "object" != typeof obj || null === obj ? !1 : obj.constructor === Ctor || Object.prototype.toString.call(obj) === "[object " + Ctor.name + "]";
+    }
+    function arrayFrom(arrayLike, forceCopy) {
+        return !forceCopy && is(arrayLike, Array) ? arrayLike : Array.prototype.slice.call(arrayLike);
+    }
+    function defined(value, defaultValue) {
+        return void 0 !== value ? value : defaultValue;
+    }
+    function jDataView(buffer, byteOffset, byteLength, littleEndian) {
+        if (jDataView.is(buffer)) {
+            var result = buffer.slice(byteOffset, byteOffset + byteLength);
+            return result._littleEndian = defined(littleEndian, result._littleEndian), result;
+        }
+        if (!jDataView.is(this)) return new jDataView(buffer, byteOffset, byteLength, littleEndian);
+        if (this.buffer = buffer = jDataView.wrapBuffer(buffer), this._isArrayBuffer = compatibility.ArrayBuffer && is(buffer, ArrayBuffer), 
+        this._isPixelData = !1, this._isDataView = compatibility.DataView && this._isArrayBuffer, 
+        this._isNodeBuffer = !0 && compatibility.NodeBuffer && is(buffer, Buffer), !this._isNodeBuffer && !this._isArrayBuffer && !is(buffer, Array)) throw new TypeError("jDataView buffer has an incompatible type");
+        this._littleEndian = !!littleEndian;
+        var bufferLength = "byteLength" in buffer ? buffer.byteLength : buffer.length;
+        this.byteOffset = byteOffset = defined(byteOffset, 0), this.byteLength = byteLength = defined(byteLength, bufferLength - byteOffset), 
+        this._offset = this._bitOffset = 0, this._isDataView ? this._view = new DataView(buffer, byteOffset, byteLength) : this._checkBounds(byteOffset, byteLength, bufferLength), 
+        this._engineAction = this._isDataView ? this._dataViewAction : this._isNodeBuffer ? this._nodeBufferAction : this._isArrayBuffer ? this._arrayBufferAction : this._arrayAction;
+    }
+    function getCharCodes(string) {
+        if (compatibility.NodeBuffer) return new Buffer(string, "binary");
+        for (var Type = compatibility.ArrayBuffer ? Uint8Array : Array, codes = new Type(string.length), i = 0, length = string.length; length > i; i++) codes[i] = 255 & string.charCodeAt(i);
+        return codes;
+    }
+    function pow2(n) {
+        return n >= 0 && 31 > n ? 1 << n : pow2[n] || (pow2[n] = Math.pow(2, n));
+    }
+    function Uint64(lo, hi) {
+        this.lo = lo, this.hi = hi;
+    }
+    function Int64() {
+        Uint64.apply(this, arguments);
+    }
+    var compatibility = {
+        NodeBuffer: !0 && "Buffer" in global,
+        DataView: "DataView" in global,
+        ArrayBuffer: "ArrayBuffer" in global,
+        PixelData: !1
+    }, TextEncoder = global.TextEncoder, TextDecoder = global.TextDecoder;
+    compatibility.NodeBuffer && !function(buffer) {
+        try {
+            buffer.writeFloatLE(1/0, 0);
+        } catch (e) {
+            compatibility.NodeBuffer = !1;
+        }
+    }(new Buffer(4));
+    var dataTypes = {
+        Int8: 1,
+        Int16: 2,
+        Int32: 4,
+        Uint8: 1,
+        Uint16: 2,
+        Uint32: 4,
+        Float32: 4,
+        Float64: 8
+    };
+    jDataView.wrapBuffer = function(buffer) {
+        switch (typeof buffer) {
+          case "number":
+            if (compatibility.NodeBuffer) buffer = new Buffer(buffer), buffer.fill(0); else if (compatibility.ArrayBuffer) buffer = new Uint8Array(buffer).buffer; else {
+                buffer = new Array(buffer);
+                for (var i = 0; i < buffer.length; i++) buffer[i] = 0;
+            }
+            return buffer;
+
+          case "string":
+            buffer = getCharCodes(buffer);
+
+          default:
+            return "length" in buffer && !(compatibility.NodeBuffer && is(buffer, Buffer) || compatibility.ArrayBuffer && is(buffer, ArrayBuffer)) && (compatibility.NodeBuffer ? buffer = new Buffer(buffer) : compatibility.ArrayBuffer ? is(buffer, ArrayBuffer) || (buffer = new Uint8Array(buffer).buffer, 
+            is(buffer, ArrayBuffer) || (buffer = new Uint8Array(arrayFrom(buffer, !0)).buffer)) : buffer = arrayFrom(buffer)), 
+            buffer;
+        }
+    }, jDataView.is = function(view) {
+        return view && view.jDataView;
+    }, jDataView.from = function() {
+        return new jDataView(arguments);
+    }, jDataView.Uint64 = Uint64, Uint64.prototype = {
+        valueOf: function() {
+            return this.lo + pow2(32) * this.hi;
+        },
+        toString: function() {
+            return Number.prototype.toString.apply(this.valueOf(), arguments);
+        }
+    }, Uint64.fromNumber = function(number) {
+        var hi = Math.floor(number / pow2(32)), lo = number - hi * pow2(32);
+        return new Uint64(lo, hi);
+    }, jDataView.Int64 = Int64, Int64.prototype = "create" in Object ? Object.create(Uint64.prototype) : new Uint64(), 
+    Int64.prototype.valueOf = function() {
+        return this.hi < pow2(31) ? Uint64.prototype.valueOf.apply(this, arguments) : -(pow2(32) - this.lo + pow2(32) * (pow2(32) - 1 - this.hi));
+    }, Int64.fromNumber = function(number) {
+        var lo, hi;
+        if (number >= 0) {
+            var unsigned = Uint64.fromNumber(number);
+            lo = unsigned.lo, hi = unsigned.hi;
+        } else hi = Math.floor(number / pow2(32)), lo = number - hi * pow2(32), hi += pow2(32);
+        return new Int64(lo, hi);
+    };
+    var proto = jDataView.prototype = {
+        compatibility: compatibility,
+        jDataView: !0,
+        _checkBounds: function(byteOffset, byteLength, maxLength) {
+            if ("number" != typeof byteOffset) throw new TypeError("Offset is not a number.");
+            if ("number" != typeof byteLength) throw new TypeError("Size is not a number.");
+            if (0 > byteLength) throw new RangeError("Length is negative.");
+            if (0 > byteOffset || byteOffset + byteLength > defined(maxLength, this.byteLength)) throw new RangeError("Offsets are out of bounds.");
+        },
+        _action: function(type, isReadAction, byteOffset, littleEndian, value) {
+            return this._engineAction(type, isReadAction, defined(byteOffset, this._offset), defined(littleEndian, this._littleEndian), value);
+        },
+        _dataViewAction: function(type, isReadAction, byteOffset, littleEndian, value) {
+            return this._offset = byteOffset + dataTypes[type], isReadAction ? this._view["get" + type](byteOffset, littleEndian) : this._view["set" + type](byteOffset, value, littleEndian);
+        },
+        _arrayBufferAction: function(type, isReadAction, byteOffset, littleEndian, value) {
+            var typedArray, size = dataTypes[type], TypedArray = global[type + "Array"];
+            if (littleEndian = defined(littleEndian, this._littleEndian), 1 === size || (this.byteOffset + byteOffset) % size === 0 && littleEndian) return typedArray = new TypedArray(this.buffer, this.byteOffset + byteOffset, 1), 
+            this._offset = byteOffset + size, isReadAction ? typedArray[0] : typedArray[0] = value;
+            var bytes = new Uint8Array(isReadAction ? this.getBytes(size, byteOffset, littleEndian, !0) : size);
+            return typedArray = new TypedArray(bytes.buffer, 0, 1), isReadAction ? typedArray[0] : (typedArray[0] = value, 
+            void this._setBytes(byteOffset, bytes, littleEndian));
+        },
+        _arrayAction: function(type, isReadAction, byteOffset, littleEndian, value) {
+            return isReadAction ? this["_get" + type](byteOffset, littleEndian) : this["_set" + type](byteOffset, value, littleEndian);
+        },
+        _getBytes: function(length, byteOffset, littleEndian) {
+            littleEndian = defined(littleEndian, this._littleEndian), byteOffset = defined(byteOffset, this._offset), 
+            length = defined(length, this.byteLength - byteOffset), this._checkBounds(byteOffset, length), 
+            byteOffset += this.byteOffset, this._offset = byteOffset - this.byteOffset + length;
+            var result = this._isArrayBuffer ? new Uint8Array(this.buffer, byteOffset, length) : (this.buffer.slice || Array.prototype.slice).call(this.buffer, byteOffset, byteOffset + length);
+            return littleEndian || 1 >= length ? result : arrayFrom(result).reverse();
+        },
+        getBytes: function(length, byteOffset, littleEndian, toArray) {
+            var result = this._getBytes(length, byteOffset, defined(littleEndian, !0));
+            return toArray ? arrayFrom(result) : result;
+        },
+        _setBytes: function(byteOffset, bytes, littleEndian) {
+            var length = bytes.length;
+            if (0 !== length) {
+                if (littleEndian = defined(littleEndian, this._littleEndian), byteOffset = defined(byteOffset, this._offset), 
+                this._checkBounds(byteOffset, length), !littleEndian && length > 1 && (bytes = arrayFrom(bytes, !0).reverse()), 
+                byteOffset += this.byteOffset, this._isArrayBuffer) new Uint8Array(this.buffer, byteOffset, length).set(bytes); else if (this._isNodeBuffer) new Buffer(bytes).copy(this.buffer, byteOffset); else for (var i = 0; length > i; i++) this.buffer[byteOffset + i] = bytes[i];
+                this._offset = byteOffset - this.byteOffset + length;
+            }
+        },
+        setBytes: function(byteOffset, bytes, littleEndian) {
+            this._setBytes(byteOffset, bytes, defined(littleEndian, !0));
+        },
+        getString: function(byteLength, byteOffset, encoding) {
+            if (this._isNodeBuffer) return byteOffset = defined(byteOffset, this._offset), byteLength = defined(byteLength, this.byteLength - byteOffset), 
+            this._checkBounds(byteOffset, byteLength), this._offset = byteOffset + byteLength, 
+            this.buffer.toString(encoding || "binary", this.byteOffset + byteOffset, this.byteOffset + this._offset);
+            var bytes = this._getBytes(byteLength, byteOffset, !0);
+            if (encoding = "utf8" === encoding ? "utf-8" : encoding || "binary", TextDecoder && "binary" !== encoding) return new TextDecoder(encoding).decode(this._isArrayBuffer ? bytes : new Uint8Array(bytes));
+            var string = "";
+            byteLength = bytes.length;
+            for (var i = 0; byteLength > i; i++) string += String.fromCharCode(bytes[i]);
+            return "utf-8" === encoding && (string = decodeURIComponent(escape(string))), string;
+        },
+        setString: function(byteOffset, subString, encoding) {
+            if (this._isNodeBuffer) return byteOffset = defined(byteOffset, this._offset), this._checkBounds(byteOffset, subString.length), 
+            void (this._offset = byteOffset + this.buffer.write(subString, this.byteOffset + byteOffset, encoding || "binary"));
+            encoding = "utf8" === encoding ? "utf-8" : encoding || "binary";
+            var bytes;
+            TextEncoder && "binary" !== encoding ? bytes = new TextEncoder(encoding).encode(subString) : ("utf-8" === encoding && (subString = unescape(encodeURIComponent(subString))), 
+            bytes = getCharCodes(subString)), this._setBytes(byteOffset, bytes, !0);
+        },
+        getChar: function(byteOffset) {
+            return this.getString(1, byteOffset);
+        },
+        setChar: function(byteOffset, character) {
+            this.setString(byteOffset, character);
+        },
+        tell: function() {
+            return this._offset;
+        },
+        seek: function(byteOffset) {
+            return this._checkBounds(byteOffset, 0), this._offset = byteOffset;
+        },
+        skip: function(byteLength) {
+            return this.seek(this._offset + byteLength);
+        },
+        slice: function(start, end, forceCopy) {
+            function normalizeOffset(offset, byteLength) {
+                return 0 > offset ? offset + byteLength : offset;
+            }
+            return start = normalizeOffset(start, this.byteLength), end = normalizeOffset(defined(end, this.byteLength), this.byteLength), 
+            forceCopy ? new jDataView(this.getBytes(end - start, start, !0, !0), void 0, void 0, this._littleEndian) : new jDataView(this.buffer, this.byteOffset + start, end - start, this._littleEndian);
+        },
+        alignBy: function(byteCount) {
+            return this._bitOffset = 0, 1 !== defined(byteCount, 1) ? this.skip(byteCount - (this._offset % byteCount || byteCount)) : this._offset;
+        },
+        _getFloat64: function(byteOffset, littleEndian) {
+            var b = this._getBytes(8, byteOffset, littleEndian), sign = 1 - 2 * (b[7] >> 7), exponent = ((b[7] << 1 & 255) << 3 | b[6] >> 4) - 1023, mantissa = (15 & b[6]) * pow2(48) + b[5] * pow2(40) + b[4] * pow2(32) + b[3] * pow2(24) + b[2] * pow2(16) + b[1] * pow2(8) + b[0];
+            return 1024 === exponent ? 0 !== mantissa ? 0/0 : 1/0 * sign : -1023 === exponent ? sign * mantissa * pow2(-1074) : sign * (1 + mantissa * pow2(-52)) * pow2(exponent);
+        },
+        _getFloat32: function(byteOffset, littleEndian) {
+            var b = this._getBytes(4, byteOffset, littleEndian), sign = 1 - 2 * (b[3] >> 7), exponent = (b[3] << 1 & 255 | b[2] >> 7) - 127, mantissa = (127 & b[2]) << 16 | b[1] << 8 | b[0];
+            return 128 === exponent ? 0 !== mantissa ? 0/0 : 1/0 * sign : -127 === exponent ? sign * mantissa * pow2(-149) : sign * (1 + mantissa * pow2(-23)) * pow2(exponent);
+        },
+        _get64: function(Type, byteOffset, littleEndian) {
+            littleEndian = defined(littleEndian, this._littleEndian), byteOffset = defined(byteOffset, this._offset);
+            for (var parts = littleEndian ? [ 0, 4 ] : [ 4, 0 ], i = 0; 2 > i; i++) parts[i] = this.getUint32(byteOffset + parts[i], littleEndian);
+            return this._offset = byteOffset + 8, new Type(parts[0], parts[1]);
+        },
+        getInt64: function(byteOffset, littleEndian) {
+            return this._get64(Int64, byteOffset, littleEndian);
+        },
+        getUint64: function(byteOffset, littleEndian) {
+            return this._get64(Uint64, byteOffset, littleEndian);
+        },
+        _getInt32: function(byteOffset, littleEndian) {
+            var b = this._getBytes(4, byteOffset, littleEndian);
+            return b[3] << 24 | b[2] << 16 | b[1] << 8 | b[0];
+        },
+        _getUint32: function(byteOffset, littleEndian) {
+            return this._getInt32(byteOffset, littleEndian) >>> 0;
+        },
+        _getInt16: function(byteOffset, littleEndian) {
+            return this._getUint16(byteOffset, littleEndian) << 16 >> 16;
+        },
+        _getUint16: function(byteOffset, littleEndian) {
+            var b = this._getBytes(2, byteOffset, littleEndian);
+            return b[1] << 8 | b[0];
+        },
+        _getInt8: function(byteOffset) {
+            return this._getUint8(byteOffset) << 24 >> 24;
+        },
+        _getUint8: function(byteOffset) {
+            return this._getBytes(1, byteOffset)[0];
+        },
+        _getBitRangeData: function(bitLength, byteOffset) {
+            var startBit = (defined(byteOffset, this._offset) << 3) + this._bitOffset, endBit = startBit + bitLength, start = startBit >>> 3, end = endBit + 7 >>> 3, b = this._getBytes(end - start, start, !0), wideValue = 0;
+            (this._bitOffset = 7 & endBit) && (this._bitOffset -= 8);
+            for (var i = 0, length = b.length; length > i; i++) wideValue = wideValue << 8 | b[i];
+            return {
+                start: start,
+                bytes: b,
+                wideValue: wideValue
+            };
+        },
+        getSigned: function(bitLength, byteOffset) {
+            var shift = 32 - bitLength;
+            return this.getUnsigned(bitLength, byteOffset) << shift >> shift;
+        },
+        getUnsigned: function(bitLength, byteOffset) {
+            var value = this._getBitRangeData(bitLength, byteOffset).wideValue >>> -this._bitOffset;
+            return 32 > bitLength ? value & ~(-1 << bitLength) : value;
+        },
+        _setBinaryFloat: function(byteOffset, value, mantSize, expSize, littleEndian) {
+            var exponent, mantissa, signBit = 0 > value ? 1 : 0, eMax = ~(-1 << expSize - 1), eMin = 1 - eMax;
+            0 > value && (value = -value), 0 === value ? (exponent = 0, mantissa = 0) : isNaN(value) ? (exponent = 2 * eMax + 1, 
+            mantissa = 1) : 1/0 === value ? (exponent = 2 * eMax + 1, mantissa = 0) : (exponent = Math.floor(Math.log(value) / Math.LN2), 
+            exponent >= eMin && eMax >= exponent ? (mantissa = Math.floor((value * pow2(-exponent) - 1) * pow2(mantSize)), 
+            exponent += eMax) : (mantissa = Math.floor(value / pow2(eMin - mantSize)), exponent = 0));
+            for (var b = []; mantSize >= 8; ) b.push(mantissa % 256), mantissa = Math.floor(mantissa / 256), 
+            mantSize -= 8;
+            for (exponent = exponent << mantSize | mantissa, expSize += mantSize; expSize >= 8; ) b.push(255 & exponent), 
+            exponent >>>= 8, expSize -= 8;
+            b.push(signBit << expSize | exponent), this._setBytes(byteOffset, b, littleEndian);
+        },
+        _setFloat32: function(byteOffset, value, littleEndian) {
+            this._setBinaryFloat(byteOffset, value, 23, 8, littleEndian);
+        },
+        _setFloat64: function(byteOffset, value, littleEndian) {
+            this._setBinaryFloat(byteOffset, value, 52, 11, littleEndian);
+        },
+        _set64: function(Type, byteOffset, value, littleEndian) {
+            "object" != typeof value && (value = Type.fromNumber(value)), littleEndian = defined(littleEndian, this._littleEndian), 
+            byteOffset = defined(byteOffset, this._offset);
+            var parts = littleEndian ? {
+                lo: 0,
+                hi: 4
+            } : {
+                lo: 4,
+                hi: 0
+            };
+            for (var partName in parts) this.setUint32(byteOffset + parts[partName], value[partName], littleEndian);
+            this._offset = byteOffset + 8;
+        },
+        setInt64: function(byteOffset, value, littleEndian) {
+            this._set64(Int64, byteOffset, value, littleEndian);
+        },
+        setUint64: function(byteOffset, value, littleEndian) {
+            this._set64(Uint64, byteOffset, value, littleEndian);
+        },
+        _setUint32: function(byteOffset, value, littleEndian) {
+            this._setBytes(byteOffset, [ 255 & value, value >>> 8 & 255, value >>> 16 & 255, value >>> 24 ], littleEndian);
+        },
+        _setUint16: function(byteOffset, value, littleEndian) {
+            this._setBytes(byteOffset, [ 255 & value, value >>> 8 & 255 ], littleEndian);
+        },
+        _setUint8: function(byteOffset, value) {
+            this._setBytes(byteOffset, [ 255 & value ]);
+        },
+        setUnsigned: function(byteOffset, value, bitLength) {
+            var data = this._getBitRangeData(bitLength, byteOffset), wideValue = data.wideValue, b = data.bytes;
+            wideValue &= ~(~(-1 << bitLength) << -this._bitOffset), wideValue |= (32 > bitLength ? value & ~(-1 << bitLength) : value) << -this._bitOffset;
+            for (var i = b.length - 1; i >= 0; i--) b[i] = 255 & wideValue, wideValue >>>= 8;
+            this._setBytes(data.start, b, !0);
+        }
+    }, nodeNaming = {
+        Int8: "Int8",
+        Int16: "Int16",
+        Int32: "Int32",
+        Uint8: "UInt8",
+        Uint16: "UInt16",
+        Uint32: "UInt32",
+        Float32: "Float",
+        Float64: "Double"
+    };
+    proto._nodeBufferAction = function(type, isReadAction, byteOffset, littleEndian, value) {
+        this._offset = byteOffset + dataTypes[type];
+        var nodeName = nodeNaming[type] + ("Int8" === type || "Uint8" === type ? "" : littleEndian ? "LE" : "BE");
+        return byteOffset += this.byteOffset, isReadAction ? this.buffer["read" + nodeName](byteOffset) : this.buffer["write" + nodeName](value, byteOffset);
+    };
+    for (var type in dataTypes) !function(type) {
+        proto["get" + type] = function(byteOffset, littleEndian) {
+            return this._action(type, !0, byteOffset, littleEndian);
+        }, proto["set" + type] = function(byteOffset, value, littleEndian) {
+            this._action(type, !1, byteOffset, littleEndian, value);
+        };
+    }(type);
+    proto._setInt32 = proto._setUint32, proto._setInt16 = proto._setUint16, proto._setInt8 = proto._setUint8, 
+    proto.setSigned = proto.setUnsigned;
+    for (var method in proto) "set" === method.slice(0, 3) && !function(type) {
+        proto["write" + type] = function() {
+            Array.prototype.unshift.call(arguments, void 0), this["set" + type].apply(this, arguments);
+        };
+    }(method.slice(3));
+    return jDataView;
+});};
+
+var Base64=Require('os/base64');
+module.exports = Require('plugins/matlab/jMatFile.js');
+if (typeof window != 'undefined') for(var p in module.exports) window[p]=module.exports[p];
+return module.exports;

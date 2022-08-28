@@ -1,0 +1,5557 @@
+var CoreModule = {};
+CoreModule['com/io']='com/io';
+CoreModule['com/pwgen']='com/pwgen.lw';
+CoreModule['assert']='os/assert';
+CoreModule['crypto']='os/crypto.rand';
+CoreModule['events']='os/events';
+CoreModule['path']='os/path';
+CoreModule['string_decoder']='os/string_decoder';
+CoreModule['util']='util';
+CoreModule['http']='http';
+CoreModule['deasync']='deasync';
+CoreModule['os']='os';
+CoreModule['net']='net';
+CoreModule['fs']='fs';
+CoreModule['stream']='';
+CoreModule['url']='';
+CoreModule['zlib']='';
+CoreModule['child_process']='';
+
+var BundleModuleCode=[];
+var BundleObjectCode=[];
+var BundleModules = [];
+var Fs = require("fs");
+if (typeof __dirname == 'undefined') __dirname = '';
+if (typeof __filename == 'undefined') __filename = 'plugins/db/db.js';
+//From compat.js
+var any = undefined;
+var empty = null;
+var none = null;
+var _ = undefined;
+var int = function (v) {return v|0};
+var div = function (a,b) {return a/b|0};
+var print = function (msg) {console.log(msg)};
+if (typeof global == 'undefined') global={};
+PATH=[process.cwd(),".","/home/sbosse/proj/workbook/src",""];
+function _isdir(path) {
+  var stats=Fs.statSync(path);
+  return stats && stats.isDirectory()};
+function _search(index,file) {
+  if (PATH.length==index) return file;
+  var path=PATH[index];
+  if (Fs.existsSync(path+"/"+file+".js")) return path+"/"+file+".js";
+  else if (Fs.existsSync(path+"/"+file) && !_isdir(path+"/"+file)) return path+"/"+file;
+  else return _search(index+1,file);
+ }
+var __library=arguments&&arguments[3];
+function Require(modupath) { 
+  var file,filepath;
+  if (BundleModules[modupath]) return BundleModules[modupath];
+  var exports={}; var module={exports:exports};
+  if (CoreModule[modupath]!=undefined) modupath=CoreModule[modupath];
+  if (modupath=='') return undefined;
+  if (BundleModuleCode[modupath]) BundleModuleCode[modupath](module,exports,global,process);
+  else if (BundleObjectCode[modupath]) BundleObjectCode[modupath](module,exports,global,process);
+  else { try { file=_search(0,modupath); module = require(file)}
+  catch (e) { var more="";
+   if ((e.name==="SyntaxError"||e.name==="TypeError") && file) {
+      var src=Fs.readFileSync(file,"utf8");
+      var Esprima = Require("parser/esprima");
+      try {
+        var ast = Esprima.parse(src, { tolerant: true, loc:true });
+        if (ast.errors && ast.errors.length>0) more = ", "+ast.errors[0];
+      } catch (e) {
+        if (e.lineNumber) more = ", in line "+e.lineNumber;
+      }
+   }
+   console.log("Require import of "+modupath+" ("+file+") failed: "+e+more);
+   // if (e.stack) console.log(e.stack);
+   throw e; // process.exit(-1);
+  }}
+  BundleModules[modupath]=module.exports||module;
+  return module.exports||module;};
+FilesEmbedded=global.FilesEmbedded = {};
+FileEmbedd=global.FileEmbedd = function (path,format) {};
+FileEmbedded=global.FileEmbedded = function (path,format) {return FilesEmbedded[path](format);};
+global.TARGET='node';
+
+BundleModuleCode['com/io']=function (module,exports,global,process){
+/**
+ **      ==================================
+ **      OOOO   OOOO OOOO  O      O   OOOO
+ **      O   O  O    O     O     O O  O   O
+ **      O   O  O    O     O     O O  O   O
+ **      OOOO   OOOO OOOO  O     OOO  OOOO
+ **      O   O     O    O  O    O   O O   O
+ **      O   O     O    O  O    O   O O   O
+ **      OOOO   OOOO OOOO  OOOO O   O OOOO
+ **      ==================================
+ **      BSSLAB, Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR.
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2020 BSSLAB
+ **    $CREATED:     sbosse on 3/28/15.
+ **    $VERSION:     1.7.1X
+ **
+ **    $INFO:
+ *
+ * This module encapsulates all IO operations (except networking) supporting
+ * node.js applications.
+ *
+ **    $ENDOFINFO
+ */
+
+if (global.TARGET=='node')  { 
+
+ /*
+  ************
+  ** Node.js
+  ************
+  */
+ var util = require('util');
+ var GetEnv = Require('os/getenv');
+ var Base64 = Require('os/base64');
+ var Fs = require('fs');
+ var os = require('os');
+ var child = require('child_process');
+
+ var stderr_fun = function (str) { process.stderr.write(str); };
+ var stdout_fun = function (str) { process.stdout.write(str); };
+
+ /*
+  ** node.js specific
+  */
+
+ var tracefile = undefined;
+ var tracing = true;
+
+ /**
+ * Open a module and append all exported properties to the current global object.
+ * (top-level scope)
+ */
+ global.open = function(name,as) {
+   var module = Require(name);
+   for (var p in module) {
+     global[p] = module[p];
+   };
+   if (as) global[as]=module;
+ }
+
+/*
+ ** node.js
+ */
+var io = {
+    checkOptions : function(options,defaultOptions) {
+      return Object.assign({}, defaultOptions||{}, options) },
+      
+    checkOption : function (option,defaultOption) { 
+      return option==undefined? defaultOption:option },
+
+    config: {
+        columns:undefined,
+        rows:undefined
+    },
+    /**************
+     ** FILE IO
+     ***************/
+    /**
+     *
+     * @param fd
+     */
+    close: function (fd) {
+        Fs.closeSync(fd);
+    },
+    /**
+     *
+     * @param path
+     */
+    exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /**
+     *
+     * @param path
+     */
+    file_exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /** Search a file by iterating global PATH variable.
+     *
+     * @param name  File name or partial (relative) path
+     */
+    file_search: function (name) {
+        // Expecting global PATH variable !?
+        if (this.file_exists(name)) return name; 
+        else if (typeof PATH !== 'undefined') {
+          for (var p in PATH) {
+            if (this.file_exists(PATH[p]+'/'+name)) return (PATH[p]+'/'+name);
+          }
+          return undefined;
+        } else return undefined;
+    },
+    /**
+     *
+     * @param path
+     * @returns {number}
+     */
+    file_size: function (path) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            return stat.size;
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param timekind a c m
+     * @returns {number}
+     */
+    file_time: function (path,timekind) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            switch (timekind) {
+                case 'a': return stat.atime.getTime()/1000;
+                case 'c': return stat.ctime.getTime()/1000;
+                case 'm': return stat.mtime.getTime()/1000;
+                default: return stat.mtime.getTime()/1000;
+            }
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param mode
+     * @returns {*}
+     */
+    open: function (path, mode) {
+        return Fs.openSync(path, mode);
+    },
+    /**
+     *
+     * @param fd
+     * @param len
+     * @param foff
+     */
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    /**
+     *
+     * @param path
+     * @returns {string|undefined}
+     */
+    read_file: function (path) {
+        try {
+            return Fs.readFileSync(path,'utf8');
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @returns {*}
+     */
+    read_file_bin: function (path) {
+        try {
+            return Fs.readFileSync(path);
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param fd
+     */
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {number}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return Fs.readSync(fd, buf, boff, len, foff);
+    },
+    /**
+     *
+     * @param fd
+     */
+    sync: function (fd) {
+        Fs.fsyncSync(fd);
+    },
+    
+    time: function () {
+      return Date.now()
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {number}
+     */
+    write: function (fd, data, foff) {
+        return Fs.writeSync(fd, data, foff);
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {number}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return Fs.writeSync(fd, buf, bpos, blen, foff);
+    },
+    /**
+     *
+     * @param path
+     * @param {string} buf
+     */
+    write_file: function (path,str) {
+        try {
+            Fs.writeFileSync(path, str, 'utf8');
+            return str.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @param buf
+     * @returns {*}
+     */
+    write_file_bin: function (path,buf) {
+        try {
+            Fs.writeFileSync(path, buf, 'binary');
+            return buf.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param fd
+     * @param {string} str
+     * @returns {number}
+     */
+    write_line: function (fd, str) {
+        return Fs.writeSync(fd, str+NL);
+    },
+
+    /****************
+     ** CONSOLE IO
+     ****************/
+    /**
+     *
+     * @param msg
+     */
+    debug: function (msg) {
+        console.error('Debug: ' + msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    err: function (msg) {
+        console.error('Error: ' + msg);
+        throw Error(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    fail: function (msg) {
+        console.error('Fatal Error: ' + msg);
+        process.exit(0);
+    },
+    /**
+     *
+     * @param obj
+     */
+    inspect: function (obj,depth) {return util.inspect(obj,{showHidden: false, 
+                                                            depth: depth?depth:2})},
+
+    /**
+     * 
+     */
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (!e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        if (where==undefined) this.out(e);
+        else this.out(where+': '+e);
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+     /**
+     *
+     * @param e
+     * @param where
+     */
+    sprintstack: function (e) {
+        var str='';
+        if (e==_ || !e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .replace(/^Object.eval\s*\(/gm, '')
+            .split('\n');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                if (str!='') str += '\n';
+                str += '  at '+line;
+            }
+        }
+        return str;
+    },
+   /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    out: function (msg) {
+        console.warn(msg)
+    },
+    /**
+     *
+     * @param msg
+     */
+    warn: function (msg) {
+        console.warn('Warning: ' + msg);
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+    /**
+     *
+     * @param msg
+     */
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            Fs.writeSync(tracefile, '[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        tracefile = Fs.openSync(path, 'w+');
+        if (tracefile != undefined) this.tracing = false;
+    },
+
+    /**************
+     ** Process control
+     ***************/
+    exit: function (n) {
+        process.exit(n);
+    },
+    /**
+     *
+     * @returns {*} RSS HEAP in kBytes {data,heap}
+     */
+    mem: function () {
+        var mem = process.memoryUsage();
+        return {data:(mem.rss/1024)|0,heap:(mem.heapUsed/1024)|0};
+    },
+    /****************************
+     ** Environment and Arguments
+     ****************************/
+    getenv: function (name, def) {
+        return GetEnv(name, def);
+    },
+    workdir: function () {
+        return this.getenv('PWD','');
+    },
+
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return process.argv;
+    },
+
+    sleep: function(delay) {
+      var start = new Date().getTime();
+      while (new Date().getTime() < start + delay);
+    },
+    
+    /**
+     *  Process management
+     */
+    fork: child.fork,
+    exec: child.exec,
+    spawn: child.spawn,
+
+    /**
+     * OS
+     */
+    hostname: os.hostname
+
+  };
+} else {
+ /*
+  ************
+  ** Browser
+  ************
+  */
+  var tracing = true;
+  var stderr_fun = function (str) { console.log(str); };
+  var stdout_fun = function (str) { console.log(str); };
+  var args=[];
+
+  /**
+  * Open a module and append all exported properties to the current global object.
+  * (top-level scope)
+  */
+  global.open = function(name,as) {
+    var module = Require(name);
+    for (var p in module) {
+      global[p] = module[p];
+    };
+    if (as) global[as]=module;
+  }
+  
+  var io = {
+    /*
+    ************
+    ** Browser
+    ************
+    */
+    /*
+     ** FILE IO
+     * TODO WebStorage
+     */
+    close: function (fd) {
+        return;
+    },
+    exists: function (path) {
+        return false;
+    },
+    open: function (path, mode) {
+        var fd = Fs.openSync(path, mode);
+        return fd;
+    },
+
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    read_file: function (path) {
+        return '';
+    },
+
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {*}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return -1;
+    },
+    sync: function (fd) {
+        return;
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {*}
+     */
+    write: function (fd, data, foff) {
+        return -1;
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {*}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return -1;
+    },
+
+    /*
+     ** CONSOLE IO
+     */
+    debug: function (msg) {
+        stderr_fun('Debug: ' + msg);
+    },
+    err: function (msg) {
+        stderr_fun('Error: ' + msg);
+        throw Error(msg);
+    },
+    fail: function (msg) {
+        stderr_fun('Fatal Error: ' + msg);
+    },
+    inspect: function (obj) {
+        return;
+    },
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        stderr_fun('Stack Trace');
+        stderr_fun('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                stderr_fun(line);
+            }
+        }
+        stderr_fun('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (where==undefined) stderr_fun(e);
+        else stderr_fun(where+': '+e);
+    },
+    /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    out: function (msg) {
+        stdout_fun(msg)
+    },
+    warn: function (msg) {
+        stderr_fun('Warning: ' + msg);
+    },
+
+
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            this.log('[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        return undefined;
+    },
+
+    exit: function (n) {
+        return;
+    },
+    getenv: function (name, def) {
+        return def;
+    },
+    workdir: function () {
+        return '';
+    },
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return args;
+    },
+    set_args: function (argv) {
+        args=argv;
+    },
+    inspect: function (o) {return '?'}
+  };
+}  
+module.exports = io;
+};
+BundleModuleCode['os/getenv']=function (module,exports,global,process){
+var util = require("util");
+var url = require("url");
+
+var fallbacksDisabled = false;
+
+function _value(varName, fallback) {
+  var value = process.env[varName];
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new Error('GetEnv.Nonexistent: ' + varName + ' does not exist ' +
+                      'and no fallback value provided.');
+    }
+    if (fallbacksDisabled) {
+      throw new Error('GetEnv.DisabledFallbacks: ' + varName + ' relying on fallback ' + 
+                      'when fallbacks have been disabled');
+    }
+    return '' + fallback;
+  }
+  return value;
+}
+
+var convert = {
+  string: function(value) {
+    return '' + value;
+  },
+  int: function(value) {
+    var isInt = value.match(/^-?\d+$/);
+    if (!isInt) {
+      throw new Error('GetEnv.NoInteger: ' + value + ' is not an integer.');
+    }
+
+    return +value;
+  },
+  float: function(value) {
+    var isInfinity = (+value === Infinity || +value === -Infinity);
+    if (isInfinity) {
+      throw new Error('GetEnv.Infinity: ' + value + ' is set to +/-Infinity.');
+    }
+
+    var isFloat = !(isNaN(value) || value === '');
+    if (!isFloat) {
+      throw new Error('GetEnv.NoFloat: ' + value + ' is not a number.');
+    }
+
+    return +value;
+  },
+  bool: function(value) {
+    var isBool = (value === 'true' || value === 'false');
+    if (!isBool) {
+      throw new Error('GetEnv.NoBoolean: ' + value + ' is not a boolean.');
+    }
+
+    return (value === 'true');
+  },
+  url: url.parse
+};
+
+function converter(type) {
+  return function(varName, fallback) {
+    if(typeof varName == 'string') { // default
+      var value = _value(varName, fallback);
+      return convert[type](value);
+    } else { // multibert!
+      return getenv.multi(varName);
+    }
+  };
+};
+
+var getenv = converter('string');
+
+Object.keys(convert).forEach(function(type) {
+  getenv[type] = converter(type);
+});
+
+getenv.array = function array(varName, type, fallback) {
+  type = type || 'string';
+  if (Object.keys(convert).indexOf(type) === -1) {
+    throw new Error('GetEnv.ArrayUndefinedType: Unknown array type ' + type);
+  }
+  var value = _value(varName, fallback);
+  return value.split(/\s*,\s*/).map(convert[type]);
+};
+
+getenv.multi = function multi(spec) {
+  var key, value;
+  var result = {};
+  for(var key in spec) {
+    var value = spec[key];
+    if(util.isArray(value)) { // default value & typecast
+      switch(value.length) {
+        case 1: // no default value
+        case 2: // no type casting
+          result[key] = getenv(value[0], value[1]); // dirty, when case 1: value[1] is undefined
+        break;
+        case 3: // with typecast
+          result[key] = getenv[value[2]](value[0], value[1]);
+          break;
+        default: // wtf?
+          throw('getenv.multi(): invalid spec');
+          break;
+      }
+    } else { // value or throw
+      result[key] = getenv(value);
+    }
+  }
+  return result;
+};
+
+getenv.disableFallbacks = function() {
+  fallbacksDisabled = true;
+};
+
+getenv.enableFallbacks = function() {
+  fallbacksDisabled = false;
+};
+
+module.exports = getenv;
+};
+BundleModuleCode['os/base64']=function (module,exports,global,process){
+var keyStr = "ABCDEFGHIJKLMNOP" +
+               "QRSTUVWXYZabcdef" +
+               "ghijklmnopqrstuv" +
+               "wxyz0123456789+/" +
+               "=";
+var Buffer=Require('buffer').Buffer;
+var Base64 = {
+  encode: function (input) {
+     input = escape(input);
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     do {
+        chr1 = input.charCodeAt(i++);
+        chr2 = input.charCodeAt(i++);
+        chr3 = input.charCodeAt(i++);
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < input.length);
+
+     return output;
+  },
+
+  encodeBuf: function (input) {
+     var output = "";
+     var NaN = output.charCodeAt(2);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var len = input.length;
+     do {
+        chr1 = input.readUInt8(i++);
+        chr2 = (i<len)?input.readUInt8(i++):NaN;
+        chr3 = (i<len)?input.readUInt8(i++):NaN;
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < len);
+
+     return output;
+  },
+
+  decode: function (input) {
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output = output + String.fromCharCode(chr1);
+
+        if (enc3 != 64) {
+           output = output + String.fromCharCode(chr2);
+        }
+        if (enc4 != 64) {
+           output = output + String.fromCharCode(chr3);
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return unescape(output);
+  },
+  decodeBuf: function (input) {
+     var len = input.length;
+     var buf = new Buffer(len);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var buflen = 0;
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+     buf.fill(0);
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        buf.writeUInt8(chr1,buflen);
+        buflen++;
+        if (enc3 != 64) {
+          buf.writeUInt8(chr2,buflen);
+          buflen++;
+        }
+        if (enc4 != 64) {
+            buf.writeUInt8(chr3,buflen);
+            buflen++;
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return buf.slice(0,buflen);
+  }
+
+};
+
+
+module.exports = Base64;
+};
+BundleModuleCode['com/path']=function (module,exports,global,process){
+var process = process || {};
+(function () {
+  "use strict";
+
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+var isWindows = process.platform === 'win32';
+var util = Require('util');
+
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+
+if (isWindows) {
+  // Regex to split a windows path into three parts: [*, device, slash,
+  // tail] windows-only
+  var splitDeviceRe =
+      /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
+
+  // Regex to split the tail part of the above into [*, dir, basename, ext]
+  var splitTailRe =
+      /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
+
+  // Function to split a filename into [root, dir, basename, ext]
+  // windows version
+  var splitPath = function(filename) {
+    // Separate device+slash from tail
+    var result = splitDeviceRe.exec(filename),
+        device = (result[1] || '') + (result[2] || ''),
+        tail = result[3] || '';
+    // Split the tail into dir, basename and extension
+    var result2 = splitTailRe.exec(tail),
+        dir = result2[1],
+        basename = result2[2],
+        ext = result2[3];
+    return [device, dir, basename, ext];
+  };
+
+  var normalizeUNCRoot = function(device) {
+    return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
+  };
+
+  // path.resolve([from ...], to)
+  // windows version
+  exports.resolve = function() {
+    var resolvedDevice = '',
+        resolvedTail = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1; i--) {
+      var path;
+      if (i >= 0) {
+        path = arguments[i];
+      } else if (!resolvedDevice) {
+        path = process.cwd();
+      } else {
+        // Windows has the concept of drive-specific current working
+        // directories. If we've resolved a drive letter but not yet an
+        // absolute path, get cwd for that drive. We're sure the device is not
+        // an unc path at this points, because unc paths are always absolute.
+        path = process.env['=' + resolvedDevice];
+        // Verify that a drive-local cwd was found and that it actually points
+        // to our drive. If not, default to the drive's root.
+        if (!path || path.substr(0, 3).toLowerCase() !==
+            resolvedDevice.toLowerCase() + '\\') {
+          path = resolvedDevice + '\\';
+        }
+      }
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      var result = splitDeviceRe.exec(path),
+          device = result[1] || '',
+          isUnc = device && device.charAt(1) !== ':',
+          isAbsolute = exports.isAbsolute(path),
+          tail = result[3];
+
+      if (device &&
+          resolvedDevice &&
+          device.toLowerCase() !== resolvedDevice.toLowerCase()) {
+        // This path points to another device so it is not applicable
+        continue;
+      }
+
+      if (!resolvedDevice) {
+        resolvedDevice = device;
+      }
+      if (!resolvedAbsolute) {
+        resolvedTail = tail + '\\' + resolvedTail;
+        resolvedAbsolute = isAbsolute;
+      }
+
+      if (resolvedDevice && resolvedAbsolute) {
+        break;
+      }
+    }
+
+    // Convert slashes to backslashes when `resolvedDevice` points to an UNC
+    // root. Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      resolvedDevice = normalizeUNCRoot(resolvedDevice);
+    }
+
+    // At this point the path should be resolved to a full absolute path,
+    // but handle relative paths to be safe (might happen when process.cwd()
+    // fails)
+
+    // Normalize the tail path
+
+    function f(p) {
+      return !!p;
+    }
+
+    resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/).filter(f),
+                                  !resolvedAbsolute).join('\\');
+
+    return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
+           '.';
+  };
+
+  // windows version
+  exports.normalize = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = device && device.charAt(1) !== ':',
+        isAbsolute = exports.isAbsolute(path),
+        tail = result[3],
+        trailingSlash = /[\\\/]$/.test(tail);
+
+    // If device is a drive letter, we'll normalize to lower case.
+    if (device && device.charAt(1) === ':') {
+      device = device[0].toLowerCase() + device.substr(1);
+    }
+
+    // Normalize the tail path
+    tail = normalizeArray(tail.split(/[\\\/]+/).filter(function(p) {
+      return !!p;
+    }), !isAbsolute).join('\\');
+
+    if (!tail && !isAbsolute) {
+      tail = '.';
+    }
+    if (tail && trailingSlash) {
+      tail += '\\';
+    }
+
+    // Convert slashes to backslashes when `device` points to an UNC root.
+    // Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      device = normalizeUNCRoot(device);
+    }
+
+    return device + (isAbsolute ? '\\' : '') + tail;
+  };
+
+  // windows version
+  exports.isAbsolute = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = !!device && device.charAt(1) !== ':';
+    // UNC paths are always absolute
+    return !!result[2] || isUnc;
+  };
+
+  // windows version
+  exports.join = function() {
+    function f(p) {
+      if (!util.isString(p)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      return p;
+    }
+
+    var paths = Array.prototype.filter.call(arguments, f);
+    var joined = paths.join('\\');
+
+    // Make sure that the joined path doesn't start with two slashes, because
+    // normalize() will mistake it for an UNC path then.
+    //
+    // This step is skipped when it is very clear that the user actually
+    // intended to point at an UNC path. This is assumed when the first
+    // non-empty string arguments starts with exactly two slashes followed by
+    // at least one more non-slash character.
+    //
+    // Note that for normalize() to treat a path as an UNC path it needs to
+    // have at least 2 components, so we don't filter for that here.
+    // This means that the user can use join to construct UNC paths from
+    // a server name and a share name; for example:
+    //   path.join('//server', 'share') -> '\\\\server\\share\')
+    if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
+      joined = joined.replace(/^[\\\/]{2,}/, '\\');
+    }
+
+    return exports.normalize(joined);
+  };
+
+  // path.relative(from, to)
+  // it will solve the relative path from 'from' to 'to', for instance:
+  // from = 'C:\\orandea\\test\\aaa'
+  // to = 'C:\\orandea\\impl\\bbb'
+  // The output of the function should be: '..\\..\\impl\\bbb'
+  // windows version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from);
+    to = exports.resolve(to);
+
+    // windows is not case sensitive
+    var lowerFrom = from.toLowerCase();
+    var lowerTo = to.toLowerCase();
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var toParts = trim(to.split('\\'));
+
+    var lowerFromParts = trim(lowerFrom.split('\\'));
+    var lowerToParts = trim(lowerTo.split('\\'));
+
+    var length = Math.min(lowerFromParts.length, lowerToParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (lowerFromParts[i] !== lowerToParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    if (samePartsLength == 0) {
+      return to;
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < lowerFromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('\\');
+  };
+
+  exports.sep = '\\';
+  exports.delimiter = ';';
+
+} else /* posix */ {
+
+  // Split a filename into [root, dir, basename, ext], unix version
+  // 'root' is just a slash, or nothing.
+  var splitPathRe =
+      /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+  var splitPath = function(filename) {
+    return splitPathRe.exec(filename).slice(1);
+  };
+
+  // path.resolve([from ...], to)
+  // posix version
+  exports.resolve = function() {
+    var resolvedPath = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+      var path = (i >= 0) ? arguments[i] : process.cwd();
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      resolvedPath = path + '/' + resolvedPath;
+      resolvedAbsolute = path.charAt(0) === '/';
+    }
+
+    // At this point the path should be resolved to a full absolute path, but
+    // handle relative paths to be safe (might happen when process.cwd() fails)
+
+    // Normalize the path
+    resolvedPath = normalizeArray(resolvedPath.split('/').filter(function(p) {
+      return !!p;
+    }), !resolvedAbsolute).join('/');
+
+    return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+  };
+
+  // path.normalize(path)
+  // posix version
+  exports.normalize = function(path) {
+    var isAbsolute = exports.isAbsolute(path),
+        trailingSlash = path[path.length - 1] === '/',
+        segments = path.split('/'),
+        nonEmptySegments = [];
+
+    // Normalize the path
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i]) {
+        nonEmptySegments.push(segments[i]);
+      }
+    }
+    path = normalizeArray(nonEmptySegments, !isAbsolute).join('/');
+
+    if (!path && !isAbsolute) {
+      path = '.';
+    }
+    if (path && trailingSlash) {
+      path += '/';
+    }
+
+    return (isAbsolute ? '/' : '') + path;
+  };
+
+  // posix version
+  exports.isAbsolute = function(path) {
+    return path.charAt(0) === '/';
+  };
+
+  // posix version
+  exports.join = function() {
+    var path = '';
+    for (var i = 0; i < arguments.length; i++) {
+      var segment = arguments[i];
+      if (!util.isString(segment)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      if (segment) {
+        if (!path) {
+          path += segment;
+        } else {
+          path += '/' + segment;
+        }
+      }
+    }
+    return exports.normalize(path);
+  };
+
+
+  // path.relative(from, to)
+  // posix version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from).substr(1);
+    to = exports.resolve(to).substr(1);
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var fromParts = trim(from.split('/'));
+    var toParts = trim(to.split('/'));
+
+    var length = Math.min(fromParts.length, toParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (fromParts[i] !== toParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < fromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('/');
+  };
+
+  exports.sep = '/';
+  exports.delimiter = ':';
+}
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+
+exports.exists = util.deprecate(function(path, callback) {
+  require('fs').exists(path, callback);
+}, 'path.exists is now called `fs.exists`.');
+
+
+exports.existsSync = util.deprecate(function(path) {
+  return require('fs').existsSync(path);
+}, 'path.existsSync is now called `fs.existsSync`.');
+
+
+if (isWindows) {
+  exports._makeLong = function(path) {
+    // Note: this will *probably* throw somewhere.
+    if (!util.isString(path))
+      return path;
+
+    if (!path) {
+      return '';
+    }
+
+    var resolvedPath = exports.resolve(path);
+
+    if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
+      // path is local filesystem path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\' + resolvedPath;
+    } else if (/^\\\\[^?.]/.test(resolvedPath)) {
+      // path is network UNC path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\UNC\\' + resolvedPath.substring(2);
+    }
+
+    return path;
+  };
+} else {
+  exports._makeLong = function(path) {
+    return path;
+  };
+}
+}());
+};
+BundleModuleCode['com/sprintf']=function (module,exports,global,process){
+(function(window) {
+    var re = {
+        not_string: /[^s]/,
+        number: /[diefg]/,
+        json: /[j]/,
+        not_json: /[^j]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function(parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && re.not_json.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                    break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                    break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                    break
+                    case "j":
+                        arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                    break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                    break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                    break
+                    case "g":
+                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
+                    break
+                    case "o":
+                        arg = arg.toString(8)
+                    break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                    break
+                    case "u":
+                        arg = arg >>> 0
+                    break
+                    case "x":
+                        arg = arg.toString(16)
+                    break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                    break
+                }
+                if (re.json.test(match[8])) {
+                    output[output.length] = arg
+                }
+                else {
+                    if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                        sign = is_positive ? "+" : "-"
+                        arg = arg.toString().replace(re.sign, "")
+                    }
+                    else {
+                        sign = ""
+                    }
+                    pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                    pad_length = match[6] - (sign + arg).length
+                    pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                    output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+                }
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function(fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            try {_fmt = _fmt.substring(match[0].length)} catch (e) {throw new SyntaxError("[sprintf] unexpected fromat")}
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function(fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+     */
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function() {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+})(typeof window === "undefined" ? this : window);
+};
+BundleModuleCode['plugins/db/db.js']=function (module,exports,global,process){
+if (typeof window != 'undefined') alert('db.plugin: Browser target not supported!');
+var sqljson = Require('plugins/db/sqljson')
+Require('plugins/com/utils')
+Require('./db')
+Require('./db.sqlds')
+Require('./db.sqldoc')
+Require('./db.sqlproj')
+
+
+};
+BundleModuleCode['plugins/db/sqljson']=function (module,exports,global,process){
+var http    = require('http');
+var JSONfn  = Require('plugins/sql/jsonfn')
+var deasync = require('deasync');
+
+function POST(url,data, cb) {
+  url=url.replace(/http:\/\//,'');
+  var parts = url.split(':'),
+      host  = parts[0],
+      port  = parts[1]||'80';
+  var post_data = JSONfn.stringify(data);
+  var post_options = {
+      host: host,
+      port: port,
+      path: '',
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          // 'Content-Length': Buffer.byteLength(post_data)
+      }
+  };
+
+  var post_req = http.request(post_options, function(res) {
+      res.setEncoding('utf8');
+      var data='';
+      res.on('data', function (chunk) {
+        data += chunk;
+        // console.log('Response: ' + chunk);
+      });
+      res.on('end', function () {
+        var result=JSONfn.parse(data);
+        // console.log('POST: ',result);
+        if (cb) cb(result);
+      });
+  });
+
+  // console.log('POST: ',post_data);
+  // post the data
+  post_req.write(post_data);
+  post_req.end();
+}
+var POSTsync = deasync(function(url,data,cb) {
+  POST(url,data,function (result) {
+    cb(null,result)
+  })
+})
+
+function toTypedArray(buff,ftyp) {
+  var i,ta;
+  if (typeof Uint8Array.from != 'undefined') {
+    switch (ftyp) {
+      case Float32Array: return new Float32Array(Uint8Array.from(buff).buffer);
+      case Float64Array: return new Float64Array(Uint8Array.from(buff).buffer);
+      case Int16Array:   return new Int16Array(Uint8Array.from(buff).buffer);
+      case Int32Array:   return new Int32Array(Uint8Array.from(buff).buffer);
+    }
+  } else {
+    // Fall-back conversion
+    switch (ftyp) {
+      case Float32Array: 
+        ta=new Float32Array(buff.length/4);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readFloatLE(i*4);
+        return ta;
+      case Float64Array: 
+        ta=new Float64Array(buff.length/8);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readDoubleLE(i*8);
+        return ta;
+      case Int16Array: 
+        ta=new Int16Array(buff.length/2);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readInt16LE(i*2);
+        return ta;
+      case Int32Array: 
+        ta=new Int32Array(buff.length/4);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readInt32LE(i*4);
+        return ta;
+    }
+  }
+}
+
+// dims=[rows,columns]
+function toArray(buff,ftyp,dims,layout) {
+  var ta = toTypedArray(buff,ftyp);
+  if (!layout) layout=123;
+  if (!ta) return;
+  if (!dims) dims=[ta.length];
+  switch (dims.length) {
+    case 1: return Array.prototype.slice.call(ta);
+    case 2:
+      var a=[];
+      for(var i=0;i<dims[0];i++) {
+        var row=[];
+        for(var j=0;j<dims[1];j++) row[j]=ta[i*dims[1]+j];
+        a.push(row);
+      }
+      return a;
+  }
+}
+
+function sql(options) {
+  if (!(this instanceof sql)) return new sql(options);
+  options=options||{};
+  this.url=options.url||'localhost:5555';
+}
+
+
+sql.prototype = {
+  create: function (name,columns,cb) {
+    var self=this;
+    return self.ok(self.sqljson(self.url,{
+      create: {
+        table: name,
+        columns:columns
+      }
+    }, cb?self.fok(cb):null,cb!=undefined))
+  },
+  drop: function (name,cb) {
+    var self=this;
+    return self.ok(self.sqljson(self.url,{
+      drop: {
+        table: name,
+      }
+    }, cb?self.fok(cb):null,cb!=undefined))
+  },
+  fok : function (cb) {
+    var self=this;
+    return function (result) { cb(self.ok(result)) };
+  },
+  insert: function (name,values,cb) {
+    var self=this;
+    return self.ok(self.sqljson(self.url,{
+      insert: {
+        table: name,
+        values:values
+      }
+    }, cb?self.fok(cb):null,cb!=undefined))
+  },
+  ok : function (result) {
+    if (!result) return;
+    if (result.fs) result=result.fs;
+    result=result[Object.keys(result)[0]];
+    if (result.error) return result.error;
+    else if (result.result) return result.result;
+    else return result;
+  },
+  select : function (name,columns,where,cb) {
+    var self=this;
+    return self.ok(self.sqljson(self.url,{
+      select: {
+        table: name,
+        columns:columns,
+        where:where
+      }
+    }, cb?self.fok(cb):null,cb!=undefined))
+  },
+  sqljson : function (url,request,callback) {
+    var result;
+    if (!callback) {
+      result=POSTsync(url,request);
+      return result; 
+    } else {
+      return POST(url,request, function (res) {
+        // console.log(res);
+        callback(res);
+      });
+    };
+  },
+  tables: function (cb) {
+    var self=this;
+    return self.ok(self.sqljson(self.url,{
+      tables: {
+      }
+    }, cb?self.fok(cb):null,cb!=undefined))
+  },
+}
+
+/* demo 
+var db = sql({});
+var a  = new Int16Array(50);
+for(var i=0;i<a.length;i++) a[i]=i;
+print(db.drop('data01'))
+print(db.create('data01',{x:'int',y:'int',data:'blob'}));
+print(db.insert('data01',[{x:1,y:1,data:a},{x:2,y:2,data:a}]))
+print(db.tables())
+db.select('data01','*','',function (result) {
+  if (result) result.forEach(function (row) {
+    print(toArray(row.data,Int16Array))
+  })
+})
+*/
+
+module.exports = {
+  sql:sql,
+  toArray:toArray,
+  toTypedArray:toTypedArray,
+  POST:POST,
+  POSTsync:POSTsync
+}
+};
+BundleModuleCode['plugins/sql/jsonfn']=function (module,exports,global,process){
+/**
+ **      ==============================
+ **       O           O      O   OOOO
+ **       O           O     O O  O   O
+ **       O           O     O O  O   O
+ **       OOOO   OOOO O     OOO  OOOO
+ **       O   O       O    O   O O   O
+ **       O   O       O    O   O O   O
+ **       OOOO        OOOO O   O OOOO
+ **      ==============================
+ **      Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR(S).
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Vadim Kiryukhin, Stefan Bosse (2020)
+ **    $INITIAL:     (C) 2006-2017 Vadim Kiryukhin
+ **    $MODIFIED:    by sbosse.
+ **    $RCS:         $Id: jsonfn.js,v 1.1 2017/05/20 15:56:53 sbosse Exp $
+ **    $VERSION:     1.3.3X
+ **
+ **    $INFO:
+ **
+ ** JSONfn - javascript (both node.js and browser) plugin to stringify, 
+ **          parse and clone objects with embedded functions in an optional  masked context (mask).
+ **        - supported data types: number, boolean, string, array, buffer, typedarray, function, regex
+ **
+ **     browser:
+ **         JSONfn.stringify(obj);
+ **         JSONfn.parse(str[, date2obj]);
+ **         JSONfn.clone(obj[, date2obj]);
+ **
+ **     nodejs:
+ **       var JSONfn = require('path/to/json-fn');
+ **       JSONfn.stringify(obj);
+ **       JSONfn.parse(str[, mask]);
+ **       JSONfn.clone(obj[, mask]);
+ **
+ **
+ **     @obj      -  Object;
+ **     @str      -  String, which is returned by JSONfn.stringify() function; 
+ **     @mask     -  Environment Mask (optional)
+ **
+ **    $ENDOFINFO
+ */
+
+var current=null;
+
+
+function typedarrayTObase64(ta,ftyp) {
+  var b,i;
+  if (ta.buffer instanceof ArrayBuffer) {
+    b=Buffer(ta.buffer);
+    if (b.length>0) return b.toString('base64');
+  }
+  // Fall-back conversion
+  switch (ftyp) {
+    case Float32Array: 
+      b = Buffer(ta.length*4);
+      for(i=0;i<ta.length;i++) b.writeFloatLE(ta[i],i*4);
+      return b.toString('base64');
+    case Float64Array: 
+      b = Buffer(ta.length*8);
+      for(i=0;i<ta.length;i++) b.writeDoubleLE(ta[i],i*8);
+      return b.toString('base64');
+    case Int16Array: 
+      b = Buffer(ta.length*2);
+      for(i=0;i<ta.length;i++) b.writeInt16LE(ta[i],i*2);
+      return b.toString('base64');
+    case Int32Array: 
+      b = Buffer(ta.length*4);
+      for(i=0;i<ta.length;i++) b.writeInt32LE(ta[i],i*4);
+      return b.toString('base64');
+  }
+  return ta.toString();
+}
+function base64TOtypedarray(buff,ftyp) {
+  var i,ta;
+  if (buff.buffer instanceof ArrayBuffer) {
+    switch (ftyp) {
+      case Float32Array: return new Float32Array((new Uint8Array(buff)).buffer);
+      case Float64Array: return new Float64Array((new Uint8Array(buff)).buffer);
+      case Int16Array:   return new Int16Array((new Uint8Array(buff)).buffer);
+      case Int32Array:   return new Int32Array((new Uint8Array(buff)).buffer);
+    }
+  } else if (typeof Uint8Array.from != 'undefined') {
+    switch (ftyp) {
+      case Float32Array: return new Float32Array(Uint8Array.from(buff).buffer);
+      case Float64Array: return new Float64Array(Uint8Array.from(buff).buffer);
+      case Int16Array:   return new Int16Array(Uint8Array.from(buff).buffer);
+      case Int32Array:   return new Int32Array(Uint8Array.from(buff).buffer);
+    }
+  } else {
+    // Fall-back conversion
+    switch (ftyp) {
+      case Float32Array: 
+        ta=new Float32Array(buff.length/4);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readFloatLE(i*4);
+        return ta;
+      case Float64Array: 
+        ta=new Float64Array(buff.length/8);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readDoubleLE(i*8);
+        return ta;
+      case Int16Array: 
+        ta=new Int16Array(buff.length/2);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readInt16LE(i*2);
+        return ta;
+      case Int32Array: 
+        ta=new Int32Array(buff.length/4);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readInt32LE(i*4);
+        return ta;
+    }
+  }
+}
+(function (exports) {
+
+  exports.stringify = function (obj) {
+
+    return JSON.stringify(obj, function (key, value) {
+      if (value instanceof Function || typeof value == 'function')
+        return '_PxEnUf_' +Buffer(value.toString(true)).toString('base64');  // try minification (true) if supported
+      if (value instanceof Buffer)
+        return '_PxEfUb_' +value.toString('base64');
+      if (typeof Float64Array != 'undefined' && value instanceof Float64Array)
+        return '_PxE6Lf_' + typedarrayTObase64(value,Float64Array);
+      if (typeof Float32Array != 'undefined' && value instanceof Float32Array)
+        return '_PxE3Lf_' + typedarrayTObase64(value,Float32Array);
+      if (typeof Int16Array != 'undefined' && value instanceof Int16Array)
+        return '_PxE1Ni_' + typedarrayTObase64(value,Int16Array);
+      if (typeof Int32Array != 'undefined' && value instanceof Int32Array)
+        return '_PxE3Ni_' + typedarrayTObase64(value,Int32Array);
+      if (value instanceof RegExp)
+        return '_PxEgEr_' + value;
+      
+      return value;
+    });
+  };
+
+  exports.parse = function (str, mask) {
+    var code;
+    try {
+      with (mask||{}) {
+        code= JSON.parse(str, function (key, value) {
+          var prefix;
+
+          try {
+            if (typeof value != 'string') {
+              return value;
+            }
+            if (value.length < 8) {
+              return value;
+            }
+            prefix = value.substring(0, 8);
+
+            if (prefix === '_PxEnUf_') {
+              var code = value.slice(8);
+              if (code.indexOf('function')==0)  // Backward comp.
+                return eval('(' + code + ')');
+              else
+                return eval('(' + Buffer(code,'base64').toString() + ')');
+            }
+            if (prefix === '_PxEfUb_')
+              return Buffer(value.slice(8),'base64');
+            if (prefix === '_PxE6Lf_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Float64Array);
+            if (prefix === '_PxE3Lf_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Float32Array);
+            if (prefix === '_PxE1Ni_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Int16Array);
+            if (prefix === '_PxE3Ni_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Int32Array);
+            if (prefix === '_PxEgEr_')
+              return eval(value.slice(8));
+           
+            return value;
+          } catch (e) {
+            throw {error:e,value:value};
+          }
+        });
+     };
+    } catch (e) {
+      throw e.error||e;
+    }
+   return code;
+  };
+
+  exports.clone = function (obj, date2obj) {
+    return exports.parse(exports.stringify(obj), date2obj);
+  };
+  exports.current =function (module) { current=module.current; };
+
+  /* Remove any buffer toJSON bindings */
+  if (typeof Buffer != 'undefined' && Buffer.prototype.toJSON) delete Buffer.prototype.toJSON;
+  if (typeof buffer == 'object' && buffer.Buffer) delete buffer.Buffer.prototype.toJSON;
+  // Alias
+  exports.serialize   = exports.stringify;
+  exports.deserialize = exports.parse;
+  
+}(typeof exports === 'undefined' ? (window.JSONfn = {}) : exports));
+
+
+};
+BundleModuleCode['plugins/com/utils']=function (module,exports,global,process){
+var fs      = require('fs');
+var http    = require('http');
+var deasync = require('deasync');
+var util    = require('util');
+
+var https;
+try { https=require('https') } catch (e) {};
+
+JSONfn = Require('plugins/com/jsonfn');
+
+if (typeof print == 'undefined') print=console.log;
+
+function POST(url, data, cb) {
+  var params,headers;
+  if (data && data.params && data.data != undefined) {
+    params=data.params;
+    headers=data.headers;
+    data=data.data;
+  }
+  var ishttps= url.match(/https:/);
+  url=url.replace(/http[s]?:\/\//,'');
+  var parts = url.split(':'),
+      path  = parts[0].split('/').slice(1).join('/'),
+      host  = parts[0].split('/')[0],
+      port  = parts[1]||(ishttps?'443':'80');
+  if (params) {
+        var o=params,sep='';
+        params='/?';
+        for(var p in o) {
+          params = params + sep + p + '='+o[p];
+          sep='&';
+        } 
+  } else params='';
+  var post_data = typeof data == 'string'?data:JSONfn.stringify(data);
+
+  var post_options = {
+      host: host,
+      port: port,
+      path: '/'+path+params,
+      method: 'POST',
+      keepAlive: true,
+      headers: headers || {
+          'Content-Type': 'application/json', // ?? 'application/x-www-form-urlencoded',
+          // 'Content-Length': Buffer.byteLength(post_data)
+          // 'Content-Length': post_data.length,
+      }
+  };
+  // console.log('POST', post_options,post_data)
+  var post_req = (ishttps?https:http).request(post_options, function(res) {
+      res.setEncoding('utf8');
+      
+      var data='';
+      res.on('data', function (chunk) {
+        data += chunk;
+        // console.log('Response: ' + chunk);
+      });
+      res.on('end', function () {
+        try {
+          var result=JSONfn.parse(data);
+          // console.log('POST: ',result);
+        } catch (e) { print(data); result=e; }
+        if (cb) cb(result);
+      });
+  });
+  post_req.on('error',function (err) {
+    if (cb) cb(err); else console.log(url,err)
+  });
+  post_req.setNoDelay();
+  // console.log('POST: ',post_data);
+  // post the data
+  post_req.write(post_data);
+  post_req.end();
+}
+var POSTsync = deasync(function(url,data,cb) {
+  POST(url,data,function (result) {
+    cb(null,result);
+  })
+})
+
+function GET(url,params, cb) {
+  var ishttps= url.match(/https:/)!=null;
+  url=url.replace(/http[s]?:\/\//,'');
+  var parts = url.split(':'),
+      path  = parts[0].split('/').slice(1).join('/'),
+      host  = parts[0].split('/')[0],
+      port  = parts[1]||(ishttps?'443':'80');
+  if (params) {
+        var o=params,sep='';
+        params='/?';
+        for(var p in o) {
+          params = params + sep + p + '='+o[p];
+          sep='&';
+        } 
+  } else params='';
+  path += params; 
+  // print(host,path,port,ishttps)
+  var get_options = {
+      host: host,
+      port: port,
+      path: path,
+      method: 'GET',
+      keepAlive: true,
+      headers: {
+          // 'Content-Type': 'application/x-www-form-urlencoded',
+      }
+  };
+  // console.log('GET', post_options,post_data)
+  var get_req = (ishttps?https:http).request(get_options, function(res) {
+      res.setEncoding('utf8');
+      
+      var data='';
+      res.on('data', function (chunk) {
+        data += chunk;
+        // console.log('Response: ' + chunk);
+      });
+      res.on('end', function () {
+        try {
+          var result=JSONfn.parse(data);
+          // console.log('GET: ',result);
+        } catch (e) { result=e; }
+        if (cb) cb(result);
+      });
+  });
+  get_req.on('error',function (err) {
+    // console.log(err)
+    if (cb) cb(err); else console.log(url,err);
+  });
+  get_req.setNoDelay();
+  // get_req.write();
+  get_req.end();
+}
+var GETsync = deasync(function(url,params,cb) {
+  GET(url,params,function (result) {
+    cb(null,result)
+  })
+})
+
+Common = {
+  existFile: function (file) {
+    try {
+      var stat=fs.statSync(file);
+      return stat?true:false;
+    } catch (e) {
+      return false;
+    }
+  },
+  loadFile: function (file,callback) {
+    try {
+      var text = fs.readFileSync(file,'utf8');
+      // var data = JSONfn.parse(text);
+      if (callback) return callback(text);
+      else return text;
+    } catch (e) {
+      if (callback) return callback(data);
+      else return e
+    }
+  },
+  saveFile: function (data,file,mimetype) {
+    try {
+      var data = typeof data=='string'?data:JSONfn.stringify(data);
+      return fs.writeFileSync(file,data,'utf8');
+    } catch (e) {
+      return e
+    }
+  }
+}
+
+Utils = {
+
+  // Analyze JS using esprima
+  analyze : function  (code)  {
+    var more='';
+    try {
+      var ast = esprima.parse(code, { tolerant: true, loc:true });
+      if (ast.errors && ast.errors.length>0) more = ast.errors[0];
+    } catch (e) {
+      if (e.lineNumber) more = e+', in line '+e.lineNumber; 
+    }
+    return more;
+  },
+
+  equal : function (o1,o2) {
+    if (Utils.isArray(o1) && Utils.isArray(o2)) {
+      if (o1.length!=o2.length) return false;
+      for(var i=0;i<o1.length;i++) if (o1[i]!=o2[i]) return false;
+      return true;
+    }
+    if (Utils.isObject(o1) && Utils.isObject(o2)) {
+      var keys = Object.keys(o1);
+      for(var i in keys) {
+        if (!Utils.equal(o1[keys[i]],o2[keys[i]])) return false;
+      }
+      var keys = Object.keys(o2);
+      for(var i in keys) {
+        if (!Utils.equal(o1[keys[i]],o2[keys[i]])) return false;
+      }
+      return true;
+    }
+    return o1==o2
+  },
+  
+  flatten: function flatten(array) {
+      var res=[];
+      var len=array.length;
+      var i;
+      for(i=0;i<len;i++) {
+          var element=array[i];
+          if (!Utils.isArray(element)) res.push(element);
+          else {
+              var j;
+              var len2=element.length;
+              for(j=0;j<len2;j++) {
+                  var element2=element[j];
+                  res.push(element2);
+              }
+          }
+      }
+      return res;
+  },
+
+  format : function (args) {
+    // format array of arguments like console.log
+    var s='',sep='';
+    for(var i in args) {
+      switch (typeof args[i]) {
+        case 'number':
+        case 'string':
+        case 'boolean':
+          s += (sep+args[i]);
+          break;
+        case'function':
+          s += (sep+'[Function]');
+          break;
+        case'object':
+          s += (sep+util.inspect(args[i]));
+          break;
+      }
+      sep = ' ';
+    }
+    return s;
+  },
+
+  getOptions : function (text) {
+    var tokens=text.split(' ');
+    var options={}
+    tokens.forEach(function (av) {
+      var pl = av.split('=')
+      if (pl.length==2) options[pl[0]]=pl[1];
+    })
+    return options
+  },
+
+
+  hashCode: function hashCode(s) {
+    var h = 0, l = s.length, i = 0;
+    if ( l > 0 )
+      while (i < l)
+       h = (h << 5) - h + s.charCodeAt(i++) | 0;
+    return h;
+  },
+
+  info: function (o) {
+    switch (typeof o) {
+      case 'function':
+        return o.toString().match(/^(function[ ]*\([^\)]+\))/)[1];
+    }
+  },
+
+  inspect : Require('util').inspect,
+
+  isArray: function isArray(o) {
+    if (o==_ || o ==null) return false;
+    else return typeof o == "array" || (typeof o == "object" && o.constructor === Array);
+  },
+  isArrayArray: function isArrayArray(o) {
+    if (o==_ || o ==null) return false;
+    else return Utils.isArray(o) &&
+                Utils.isArray(o[0]);
+  },
+  isArrayArrayArray: function isArrayArray(o) {
+    if (o==_ || o ==null) return false;
+    else return Utils.isArray(o) &&
+                Utils.isArray(o[0]) &&
+                Utils.isArray(o[0][0]);
+  },
+  isBuffer: function isBuffer(o) {
+    if (o==_ || o ==null) return false;
+    else return o instanceof Buffer;
+  },
+  isMatrix: function isMatrix(o) {
+    if (o==_ || o ==null) return false;
+    else return (Utils.isArray(o) &&
+                 Utils.isArray(o[0])) ||
+                (Math.MatrixTA && Math.MatrixTA.isMatrix(o)) ||
+                (Math.Matrix && Math.Matrix.isMatrix(o))
+                ;
+  },
+  isEmpty: function isEmpty(o) {
+    for(var prop in o) {
+       if (o[prop]!=undefined) return false;
+    }
+    return true;  
+  },
+  isError : function (o) {
+    return o instanceof Error
+  },
+  isFunction: function isFunction(o) {
+      return typeof o == "function";
+  },
+  isObj: function isObj(o) {
+      return typeof o == "object";
+  },
+  isObject: function isObject(o) {
+      return typeof o == "object";
+  },
+  isRegex: function isRegex(o) {
+      return o instanceof RegExp;
+  },
+  isString: function isString(o) {
+      return typeof o == "string" || (typeof o == "object" && o.constructor === String);
+  },
+  isNumber: function isNumber(o) {
+      return typeof o == "number" || (typeof o == "object" && o.constructor === Number);
+  },
+  isBoolean: function isNumber(o) {
+      return typeof o == "boolean"
+  },
+  isString: function isNumber(o) {
+      return typeof o == "string"
+  },
+  isTypedArray: function isTypedArray(o) {
+      return Utils.isObject(o) && o.buffer instanceof ArrayBuffer
+  },
+  isVector: function isVector(o,noarray) {
+    if (o==_ || o ==null) return false;
+    else return (!noarray && Utils.isArray(o)) ||
+                (Math.VectorTA && Math.VectorTA.isVector(o)) ||
+                (Math.Vector && Math.Vector.isVector(o))
+                ;
+  },
+
+  strip: function strip(line) {
+    return line.replace(/\"/g,'')
+               .replace(/\'/g,'')
+  },
+
+  /* TYPED ARRAY */
+  typed_arrays : [
+    Int8Array,
+    Uint8Array,
+    Int16Array,
+    Uint16Array,
+    Int32Array,
+    Uint32Array,
+    Float32Array,
+    Float64Array
+  ],
+
+  TypedArrayOfName : {
+    Int8Array:Int8Array,
+    Uint8Array:Uint8Array,
+    Int16Array:Int16Array,
+    Uint16Array:Uint16Array,
+    Int32Array:Int32Array,
+    Uint32Array:Uint32Array,
+    Float32Array:Float32Array,
+    Float64Array:Float64Array  
+  },
+  TypedArrayToName : function (ftyp) {
+    if (ftyp==Int8Array) return 'Int8Array';
+    if (ftyp==Uint8Array) return 'Uint8Array';
+    if (ftyp==Int16Array) return 'Int16Array';
+    if (ftyp==UInt16Array) return 'Uint16Array';
+    if (ftyp==Int32Array) return 'Int32Array';
+    if (ftyp==UInt32Array) return 'Uint32Array';
+    if (ftyp==Float32Array) return 'Float32Array';
+    if (ftyp==Float64Array) return 'Float64Array';
+  },
+
+  GET: function (url,params,cb) {
+    if (!cb) return GETsync(url,params);
+    else return GET(url,params,cb);
+  },
+  
+  POST: function (url,data,cb,sync){
+    if (!cb) return POSTsync(url,data);
+    else return POST(url,data,cb);
+  },
+
+  version: '1.2.4'
+}
+
+
+Object.addProperty = function (obj,name,fun) {
+  if (obj.prototype[name]) return;
+  obj.prototype[name]=fun;
+  Object.defineProperty(obj.prototype, name, {enumerable: false});
+};
+
+Object.updateProperty = function (obj,name,fun) {
+  obj.prototype[name]=fun;
+  Object.defineProperty(obj.prototype, name, {enumerable: false});
+};
+
+// Array static methods extensions
+if (!Array.create) Array.create = function(length,init) {
+      var arr = [], i = length;
+      while (i--) {
+        arr[i] = init;
+      }
+      return arr;
+  }
+
+if (!Array.matrix) Array.matrix = function (rows,cols,init) {
+  if (init==undefined) init=0;
+  var mat=[];
+  for(var i=0;i<rows;i++) {
+    var row=[];
+    for(j=0;j<cols;j++) row.push(typeof init == 'function'?init(i,j):init);
+    mat.push(row);
+  }
+  return mat;
+};
+
+// Array prototype extensions
+Object.addProperty(Array,'last',function () { return this[this.length-1] });
+
+// String static methods extensions
+if (!String.create) String.create = function(size,init) {
+      var i, s='';
+      init=init||' ';
+      for(i=0;i<size;i++) s=s+init;
+      return s;
+};
+if (!String.copy) String.copy = function(src) {
+      var i,dst='';
+      for(i=0;i<src.length;i++) dst=dst+src.charAt(i);
+      return dst;
+}; 
+if (!String.get) String.get = function (str,index) {
+      return str.charAt(index);
+}
+if (!String.hex) String.hex = function (n,len) {
+      // format a hexadecimal number with 'len' figures.
+      switch (len) {
+          case 2: return (((n>>4) & 0xf).toString(16))+
+                          ((n&0xf).toString(16));
+          case 4: return (((n>>12) & 0xf).toString(16)+
+                          ((n>>8) & 0xf).toString(16)+
+                          ((n>>4) & 0xf).toString(16)+
+                          (n&0xf).toString(16));
+          case 6: return (((n>>20) & 0xf).toString(16)+
+                          ((n>>16) & 0xf).toString(16)+
+                          ((n>>12) & 0xf).toString(16)+
+                          ((n>>8) & 0xf).toString(16)+
+                          ((n>>4) & 0xf).toString(16)+
+                          (n&0xf).toString(16));
+          case 8: return (((n>>28) & 0xf).toString(16)+
+                          ((n>>24) & 0xf).toString(16)+
+                          ((n>>20) & 0xf).toString(16)+
+                          ((n>>16) & 0xf).toString(16)+
+                          ((n>>12) & 0xf).toString(16)+
+                          ((n>>8) & 0xf).toString(16)+
+                          ((n>>4) & 0xf).toString(16)+
+                          (n&0xf).toString(16));
+          default: return 'format_hex??';
+      }
+}; 
+if (!String.set) String.set = function (str,index,char) {
+  return str.substr(0, index) + char + str.substr(index+1)
+}
+// String prototype extensions
+Object.addProperty(String,'contains', function (el) {
+  return this.includes(el)
+})
+Object.addProperty(String, 'hashCode', function (seed) {
+    var str=this,seed=seed||0;
+    var h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (var i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(16).toUpperCase();
+});
+
+
+};
+BundleModuleCode['plugins/com/jsonfn']=function (module,exports,global,process){
+/**
+ **      ==============================
+ **       O           O      O   OOOO
+ **       O           O     O O  O   O
+ **       O           O     O O  O   O
+ **       OOOO   OOOO O     OOO  OOOO
+ **       O   O       O    O   O O   O
+ **       O   O       O    O   O O   O
+ **       OOOO        OOOO O   O OOOO
+ **      ==============================
+ **      Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR(S).
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Vadim Kiryukhin, Stefan Bosse (2020)
+ **    $INITIAL:     (C) 2006-2017 Vadim Kiryukhin
+ **    $MODIFIED:    by sbosse.
+ **    $RCS:         $Id: jsonfn.js,v 1.1 2017/05/20 15:56:53 sbosse Exp $
+ **    $VERSION:     1.3.3X
+ **
+ **    $INFO:
+ **
+ ** JSONfn - javascript (both node.js and browser) plugin to stringify, 
+ **          parse and clone objects with embedded functions in an optional  masked context (mask).
+ **        - supported data types: number, boolean, string, array, buffer, typedarray, function, regex
+ **
+ **     browser:
+ **         JSONfn.stringify(obj);
+ **         JSONfn.parse(str[, date2obj]);
+ **         JSONfn.clone(obj[, date2obj]);
+ **
+ **     nodejs:
+ **       var JSONfn = require('path/to/json-fn');
+ **       JSONfn.stringify(obj);
+ **       JSONfn.parse(str[, mask]);
+ **       JSONfn.clone(obj[, mask]);
+ **
+ **
+ **     @obj      -  Object;
+ **     @str      -  String, which is returned by JSONfn.stringify() function; 
+ **     @mask     -  Environment Mask (optional)
+ **
+ **    $ENDOFINFO
+ */
+
+var current=null;
+
+
+function typedarrayTObase64(ta,ftyp) {
+  var b,i;
+  if (ta.buffer instanceof ArrayBuffer) {
+    b=Buffer(ta.buffer);
+    if (b.length>0) return b.toString('base64');
+  }
+  // Fall-back conversion
+  switch (ftyp) {
+    case Float32Array: 
+      b = Buffer(ta.length*4);
+      for(i=0;i<ta.length;i++) b.writeFloatLE(ta[i],i*4);
+      return b.toString('base64');
+    case Float64Array: 
+      b = Buffer(ta.length*8);
+      for(i=0;i<ta.length;i++) b.writeDoubleLE(ta[i],i*8);
+      return b.toString('base64');
+    case Int16Array: 
+      b = Buffer(ta.length*2);
+      for(i=0;i<ta.length;i++) b.writeInt16LE(ta[i],i*2);
+      return b.toString('base64');
+    case Int32Array: 
+      b = Buffer(ta.length*4);
+      for(i=0;i<ta.length;i++) b.writeInt32LE(ta[i],i*4);
+      return b.toString('base64');
+  }
+  return ta.toString();
+}
+function base64TOtypedarray(buff,ftyp) {
+  var i,ta;
+  if (buff.buffer instanceof ArrayBuffer) {
+    switch (ftyp) {
+      case Float32Array: return new Float32Array((new Uint8Array(buff)).buffer);
+      case Float64Array: return new Float64Array((new Uint8Array(buff)).buffer);
+      case Int16Array:   return new Int16Array((new Uint8Array(buff)).buffer);
+      case Int32Array:   return new Int32Array((new Uint8Array(buff)).buffer);
+    }
+  } else if (typeof Uint8Array.from != 'undefined') {
+    switch (ftyp) {
+      case Float32Array: return new Float32Array(Uint8Array.from(buff).buffer);
+      case Float64Array: return new Float64Array(Uint8Array.from(buff).buffer);
+      case Int16Array:   return new Int16Array(Uint8Array.from(buff).buffer);
+      case Int32Array:   return new Int32Array(Uint8Array.from(buff).buffer);
+    }
+  } else {
+    // Fall-back conversion
+    switch (ftyp) {
+      case Float32Array: 
+        ta=new Float32Array(buff.length/4);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readFloatLE(i*4);
+        return ta;
+      case Float64Array: 
+        ta=new Float64Array(buff.length/8);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readDoubleLE(i*8);
+        return ta;
+      case Int16Array: 
+        ta=new Int16Array(buff.length/2);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readInt16LE(i*2);
+        return ta;
+      case Int32Array: 
+        ta=new Int32Array(buff.length/4);
+        for(i=0;i<ta.length;i++) 
+          ta[i]=buff.readInt32LE(i*4);
+        return ta;
+    }
+  }
+}
+(function (exports) {
+
+  exports.stringify = function (obj) {
+
+    return JSON.stringify(obj, function (key, value) {
+      if (value instanceof Function || typeof value == 'function')
+        return '_PxEnUf_' +Buffer(value.toString(true)).toString('base64');  // try minification (true) if supported
+      if (value instanceof Buffer)
+        return '_PxEfUb_' +value.toString('base64');
+      if (typeof Float64Array != 'undefined' && value instanceof Float64Array)
+        return '_PxE6Lf_' + typedarrayTObase64(value,Float64Array);
+      if (typeof Float32Array != 'undefined' && value instanceof Float32Array)
+        return '_PxE3Lf_' + typedarrayTObase64(value,Float32Array);
+      if (typeof Int16Array != 'undefined' && value instanceof Int16Array)
+        return '_PxE1Ni_' + typedarrayTObase64(value,Int16Array);
+      if (typeof Int32Array != 'undefined' && value instanceof Int32Array)
+        return '_PxE3Ni_' + typedarrayTObase64(value,Int32Array);
+      if (value instanceof RegExp)
+        return '_PxEgEr_' + value;
+      
+      return value;
+    });
+  };
+
+  exports.parse = function (str, mask) {
+    var code;
+    try {
+      with (mask||{}) {
+        code= JSON.parse(str, function (key, value) {
+          var prefix;
+
+          try {
+            if (typeof value != 'string') {
+              return value;
+            }
+            if (value.length < 8) {
+              return value;
+            }
+            prefix = value.substring(0, 8);
+
+            if (prefix === '_PxEnUf_') {
+              var code = value.slice(8);
+              if (code.indexOf('function')==0)  // Backward comp.
+                return eval('(' + code + ')');
+              else
+                return eval('(' + Buffer(code,'base64').toString() + ')');
+            }
+            if (prefix === '_PxEfUb_')
+              return Buffer(value.slice(8),'base64');
+            if (prefix === '_PxE6Lf_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Float64Array);
+            if (prefix === '_PxE3Lf_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Float32Array);
+            if (prefix === '_PxE1Ni_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Int16Array);
+            if (prefix === '_PxE3Ni_')
+              return base64TOtypedarray(Buffer(value.slice(8),'base64'),Int32Array);
+            if (prefix === '_PxEgEr_')
+              return eval(value.slice(8));
+           
+            return value;
+          } catch (e) {
+            throw {error:e,value:value};
+          }
+        });
+     };
+    } catch (e) {
+      throw e.error||e;
+    }
+   return code;
+  };
+
+  exports.clone = function (obj, date2obj) {
+    return exports.parse(exports.stringify(obj), date2obj);
+  };
+  exports.current =function (module) { current=module.current; };
+
+  /* Remove any buffer toJSON bindings */
+  if (typeof Buffer != 'undefined' && Buffer.prototype.toJSON) delete Buffer.prototype.toJSON;
+  if (typeof buffer == 'object' && buffer.Buffer) delete buffer.Buffer.prototype.toJSON;
+  // Alias
+  exports.serialize   = exports.stringify;
+  exports.deserialize = exports.parse;
+  
+}(typeof exports === 'undefined' ? (window.JSONfn = {}) : exports));
+
+
+};
+BundleModuleCode['./db']=function (module,exports,global,process){
+// A virtual JSON database file system
+/* type entry = { kind:'object'|'table'|'db'|'fs'|'file'|'data'|'dir'|'matrix', 
+                 data?:buffer|string,  url?:string,
+                 name:string, mimetype?:string, meta?:{}, path?:string, }
+   type mimetype = 
+    'application/octet-stream' |
+    'text/plain'
+   ..
+
+   SQL (entry='db')
+      
+   Hierarchical Structuring
+   
+   type HdFTable = Column {
+    id: integer primary key,
+    type: integer,
+    mimetype: varchar(128),
+    createTime: integer,
+    lastModTime: integer,
+    size: integer,
+    name: varchar(512),
+    parent: integer,
+    meta: varchar (),
+    data: blob
+   } with Column.fsType = 0:directory,1:file,2:meta,3:table, (4:dataset,5:group)
+     
+   Meta Data for datasets (YAML format):
+    dataspace :
+       dimensions : [x,y,..]
+    datatype : string | integer | int16 | ..
+    attribute1 : ..
+   
+   type ProjTable = Column {
+     id: varchar()|integer,
+     type:integer is project or folder,    
+     name: varchar(1000),
+     description: varchar(1000),
+     time: varchar()|integer,
+     data: blob|varchar(1000000) is project or folder,
+   } with Column.type = 0:directory,1:document
+   
+   type DocTable = Column {
+     id: integer primary key,
+     type:integer,
+     mimetype: varchar(100),
+     description: varchar(65000),
+     template: varchar(65000),
+     size:integer,
+     time:integer,
+     content:blob|varchar(1000000)
+   } with Column.type = 0:directory,1:document,2:media
+
+  
+  Hierarchical DataSet Organisation
+  --------------------------------- 
+  
+  meta data: { datatype:string,dataspace:number [], index?:number, chunk?:[] }
+  type DataSetTable = Column {
+     id         : integer primary key,
+     type       : integer,  --  0:group, 1:direct data, 2:indirect, referenced indexed DataTable
+     name       : varchar(),
+     time       : integer,
+     meta       : varchar(), -- YAML/JSON
+     data       : blob|integer|varchar() -- DataTable name or serialized data
+   }
+   type DataTable = Columns {
+     index      : integer primary key,
+     type       : integer,  --  1:direct data, 2: indirect data, referenced indexed DataTable
+     meta       : varchar(), -- optional, YAML/JSON, for chunks ?
+     data       : blob,  
+   }
+   
+  JSON API
+  ========
+  
+  type table = {
+    table : key string,
+    meta?: {},
+    rows : dataset|datagroup|data []
+  }
+  type dataset = {
+    data : key string,
+    meta : {},
+    dataspace : number [] | [],
+    datatype : datatype,
+    data : []
+  }
+  type datagroup = {
+    group : key string,
+    meta? : {},
+    rows : dataset | datagroup [],
+  }
+  
+  type datatype = 'number' | 'float32' | 'float64' | 'int8' | 'int16' | 'int32' | ..
+                  'json' | 'string' | 'object'
+  type url = string with format "host:port" | "host:port:key1:key2:.." 
+*/
+
+
+DB = {
+  // Multiple API views can exist for one physical SQL DB! (sql,sqlfs,sqlproj,sqldoc)
+  addDB   : function (path,url,flags) {
+    var db;
+    var pel = path.split('/'),
+        root=DB.store,
+        entry;
+    if (pel.length==1) entry=path;
+    else {
+      entry=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        root=root.nodes[pel[0]];
+        pel=pel.slice(1);
+      }
+    }
+    if (DB.strict && root.nodes[entry]) return new Error('EEXIST');
+    if ((!url || url==':memory:') && SQL) {
+      db = new SQL.Database();
+      root.nodes[entry] = {
+        kind  : 'db',
+        db    : db,
+        name  : entry,
+        time  : DB.time(),
+        id    : db.db,
+        flags : flags||'',
+        exec : {
+          // TODO
+          create: function () {},
+          select: function () {},
+        }
+      }
+    } else {
+      var db
+      if (!flags) db = DB.sql(url);
+      else if (flags.indexOf('sqlproj')==0) db = DB.sqlproj(url);
+      else if (flags.indexOf('sqlfs')==0)   db = DB.sqlfs(url);
+      else if (flags.indexOf('sqldoc')==0)  db = DB.sqldoc(url);
+      // Remote SQL DB
+      root.nodes[entry] = {
+        kind  : 'db',
+        name  : entry,
+        url   : url,
+        time  : DB.time(),
+        flags : flags||'',
+        exec  : db,
+      }
+    }
+    return root.nodes[entry];
+  },
+  
+  // Add a dataset root table with sqlds API
+  addDS : function (path,url,table) {
+    var pel = path.split('/'),
+        root=DB.store,
+        node;
+    if (pel.length==1) file=path;
+    else {
+      node=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        root=root.nodes[pel[0]];
+        pel=pel.slice(1);
+      }
+    }
+    if (DB.strict && root.nodes[node]) return new Error('EEXIST');
+    var db=DB.sqlds(url,table,{});
+    // Remote SQL DB
+    root.nodes[node] = {
+        kind  : 'db',
+        name  : node,
+        url   : url,
+        time  : DB.time(),
+        flags : 'sqldataset',
+        exec  : db,
+      }
+    return root.nodes[node];    
+  },
+
+  // add JSONfs API (local FS server)
+  addFS : function (path,url,flags) {
+    var pel = path.split('/'),
+        root=DB.store,
+        entry;
+    if (pel.length==1) entry=path;
+    else {
+      entry=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        root=root.nodes[pel[0]];
+        pel=pel.slice(1);
+      }
+    }
+    if (DB.strict && root.nodes[entry]) return new Error('EEXIST');
+    // Remote WEX Server
+    root.nodes[entry] = {
+        kind  : 'fs',
+        name  : entry,
+        url   : url,
+        time  : DB.time(),
+        flags : flags||'',
+        exec  : DB.wex(url),
+    }
+    return root.nodes[entry];
+  },
+  
+  addData : function (path,data,meta) {
+    var pel = path.split('/'),
+        root=DB.store,
+        file;
+    if (pel.length==1) file=path;
+    else {
+      file=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        root=root.nodes[pel[0]];
+        pel=pel.slice(1);
+      }
+    }
+    if (DB.strict && root.nodes[file]) return new Error('EEXIST');
+    root.nodes[file] = {
+      kind : 'data',
+      data : data,
+      size : 0,
+      time : DB.time(),
+      merta : meta ||{},
+      name : file,
+    }
+    return root.nodes[file];
+  },
+  
+  addFile : function (path,data,mimetype) {
+    var pel = path.split('/'),
+        root=DB.store,
+        file;
+    if (pel.length==1) file=path;
+    else {
+      file=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        root=root.nodes[pel[0]];
+        pel=pel.slice(1);
+      }
+    }
+    if (DB.strict && root.nodes[file]) return new Error('EEXIST');
+    root.nodes[file] = {
+      kind : 'file',
+      data : data,
+      size : data.length||0,
+      time : DB.time(),
+      mimetype : mimetype||(typeof data=='string'?'text/plain':'application/javascript'),
+      name : file,
+    }
+    return root.nodes[file];
+  },
+
+  // pack generic number arrays into byte buffer (with support for array arrays)  
+  array2buffer : function (array,typ,space) {
+    var size=array.length,dsize=4;
+    typ=typ||'uint32';
+    if (!space && Utils.isArray(array[0])) {
+      space=[size,array[0].length];
+      if (Utils.isArray(array[0][0])) space.push(array[0][0].length);
+    }
+    if (space) size=space.reduce(function (a,b) { return a*b });
+    if (!space) space=[size];
+    switch (typ) {
+        case 'number': dsize=8; break;
+        case 'uint16': dsize=2; break;
+        case 'uint32': dsize=4; break;
+        case 'int16':  dsize=2; break;
+        case 'int32':  dsize=4; break;
+        case 'float32': dsize=4; break;
+        case 'float64': dsize=8; break;
+    }
+    var b=Buffer(size*dsize);
+    function set(v,off) {
+      switch (typ) {
+        case 'uint16':  b.writeUInt16LE(v,off); break;
+        case 'uint32':  b.writeUInt32LE(v,off); break;
+        case 'int16':   b.writeInt16LE(v,off); break;
+        case 'int32':   b.writeInt32LE(v,off); break;
+        case 'float32': b.writeFloatLE(v,off); break;
+        case 'float64': 
+        case 'number':
+        default:
+          b.writeDoubleLE(v,off); break;
+      }    
+    }
+    var v,off=0;
+    for(var i=0;i<array.length;i++) {
+      switch (space.length) {
+        case 1:
+          v=array[i];
+          set(v,off);
+          off += dsize;
+          break;
+        case 2:
+          for (var j=0;j<space[1];j++) {
+            v=array[i][j];
+            set(v,off);
+            off += dsize;    
+          }
+          break;
+        case 3:
+          for (var j=0;j<space[1];j++) {
+            for (var k=0;k<space[2];k++) {
+              v=array[i][j][k];
+              set(v,off);
+              off += dsize;    
+            }
+          }
+          break;
+      }
+    }
+    return b;
+  },
+  
+  // unpack generic number arrays from buffer (with support for array arrays)
+  buffer2array : function (buffer,typ,space) {
+    var dsize=4,bsize=(buffer.size||buffer.length),size,length,array=[];
+    typ=typ||'uint32';
+    if (buffer instanceof Array) return buffer;
+    buffer=(buffer instanceof Uint8Array)?Buffer(buffer):buffer;
+    if (typ=='number') dsize=8;
+    else if (typ.indexOf('64')>0) dsize=8;
+    else if (typ.indexOf('32')>0) dsize=4;
+    else if (typ.indexOf('16')>0) dsize=2;
+    else if (typ.indexOf('8')>0) dsize=1;
+    typ=typ.toLowerCase();
+    if (space)  size=space.reduce(function (a,b) { return a*b });
+    if (!space) space=[bsize/dsize];
+    if (size && (size*dsize)!=buffer.length) return new Error('EINVALID');
+
+    function get(off) {
+      switch (typ) {
+        case 'uint8':   return buffer.readUInt8(off); break;
+        case 'uint16':  return buffer.readUInt16LE(off); break;
+        case 'uint32':  return buffer.readUInt32LE(off); break;
+        case 'int8':    return buffer.readInt8(off); break;
+        case 'int16':   return buffer.readInt16LE(off); break;
+        case 'int32':   return buffer.readInt32LE(off); break;
+        case 'float32': return buffer.readFloatLE(off); break;
+        case 'float64': 
+        case 'number':
+        default:
+          return buffer.readDoubleLE(off); break;
+      }    
+    }
+    var v,off=0;
+    for(var i=0;i<space[0];i++) {
+      switch (space.length) {
+        case 1:
+          v=get(off);
+          array[i]=v;
+          off += dsize;
+          break;
+        case 2:
+          array[i]=[];
+          for (var j=0;j<space[1];j++) {
+            v=get(off);
+            array[i][j]=v;
+            off += dsize; 
+          }
+          break;
+        case 3:
+          array[i]=[];
+          for (var j=0;j<space[1];j++) {  
+            array[i][j]=[];
+            for (var k=0;k<space[2];k++) {
+              v=get(off);
+              array[i][j][k]=v;
+              off += dsize;    
+            }
+          }
+          break;
+      }
+    }
+
+    return array;
+  },
+
+  basename : function (path,extension) {
+    if (path[path.length-1]=='/') return '/';
+    return extension?
+            path.split('/').reverse()[0].replace(RegExp(extension.replace(/\./,'\\.')+'$'),'')
+            :
+            path.split('/').reverse()[0];
+  },
+  
+  config : {
+    // standard default ports
+    ports : {
+      sqldoc  : 5558, 
+      sqlproj : 5550,
+    }
+  },
+  
+  delete : function (path,cb) {
+    var pel = path.split('/'),
+        root=DB.store, base='',
+        entry;
+    if (pel.length==1) return 0;
+    else {
+      entry=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        base += ('/'+pel[0]);
+        if (root.nodes)
+          root=root.nodes[pel[0]];
+        else break;
+        pel=pel.slice(1);
+      }
+    }
+    if (root && root.nodes && root.nodes[entry] && root.nodes[entry].kind) {
+      delete root.nodes[entry];
+      return 1;
+    } else if (root && root.kind && pel.length) {
+      var more = { remains:pel, base:base, root:root };
+      switch (root.kind) {
+        case 'db':
+          if (more.root.flags.contains('sqlproj')) {
+            if (more.remains[0]=='projects') more.remains.shift();
+            return more.root.exec.delete('/'+more.remains.concat([entry]).join('/'),cb);
+          }
+          if (more.root.flags.contains('sqldoc')) {
+            return more.root.exec.delete('/'+more.remains.concat([entry]).join('/'),cb);
+          }
+          if (more.remains[0]=='tables') {
+            result = root.exec.drop(entry);
+            if (!result || result.error) return 0;
+            else return 1;
+          }
+          break;
+      }
+    }
+    return 0;
+  },
+  
+  dirname : function (path) {
+    var el=path.split('/');
+    el.pop();
+    return el.join('/');
+  },
+  
+  error : function (result) {
+    try {
+      if (typeof result == 'number') return result>=0?false:new Error(result);
+      if (!result) return new Error('EIO');
+      if (result instanceof Error) return result;
+      if (typeof XMLHttpRequestException != 'undefined' &&
+          result instanceof XMLHttpRequestException) return new Error(result.message);
+      if (typeof result == 'string' && result.indexOf('Error')!=-1) return new Error(result);
+      if (result.error) return new Error(result.error);
+      if (result.fs) result=result.fs;
+      result=result[Object.keys(result)[0]];
+      if (!result) return false;
+      if (result.error) return new Error(result.error);
+      else return false;
+    } catch (e) {
+      console.log(e,result);
+      return e;
+    }
+  },
+  
+   
+  fok : function (cb) {
+    return function (result) { cb(DB.ok(result)) };
+  },
+  
+  init : function () {
+    if (typeof SQL != 'undefined') {
+      var db = new SQL.Database();
+    }
+  },
+  
+  list : function (path,root,cb) {
+    var pel = path.split('/'),
+        base='',head=path.charAt(0),
+        result;
+    root=root||DB.store;
+    if (pel.length==2 && pel[0]=='' && pel[1]=='')
+      return root.nodes;
+    else {
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        base += ('/'+pel[0]);
+        if (root.nodes)
+          root=root.nodes[pel[0]];
+        else break;
+        pel=pel.slice(1);
+      }
+    }
+    if (pel.length==0 && root && root.nodes)
+      return root.nodes;
+    else if (root) {
+      var more = { remains:pel, base:base, root:root };
+      if (more.root.kind == 'db') {
+        if (more.root.flags.contains('sqlproj')) {
+          return more.root.exec.list('/'+more.remains.join('/'),cb);
+        }
+        if (more.root.flags.contains('sqldoc')) {
+          return more.root.exec.list('/'+more.remains.join('/'),cb);
+        }
+      }
+    }
+    return new Error('ENOTFOUND');
+  },
+  
+  // Resolve path and return entry descriptor
+  // db:          { kind:'dir',name,time,nodes:[] } 
+  // sql/tables:  { tables : [], url }  
+  // sql:         { kind:'db', name, time, url, exec} 
+  // fs:          { name,dir,size,time, nodes?:[] }
+  // error:       null|error string
+  lookup: function (path,root,cb) {
+    var pel = path.split('/'),
+        base='',head=path.charAt(0),
+        entry, result;
+    root=root||DB.store;
+    if (pel.length==1) entry=pel[0];
+    else if (pel.length==2 && pel[0]=='' && pel[1]=='')
+      return root;
+    else {
+      entry=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        base += ('/'+pel[0]);
+        if (root.nodes)
+          root=root.nodes[pel[0]];
+        else break;
+        pel=pel.slice(1);
+      }
+    }
+    
+    if (pel.length==0 && root && root.nodes)
+      return root.nodes[entry];
+    else {
+      pel.push(entry);
+      var more = { remains:pel, base:base, root:root };
+      if (more.root.kind == 'db') {
+        switch (more.remains[0]) {
+          case 'tables':
+            if (!more.remains[1]) {
+              var tables = more.root.exec.tables();
+              return { tables : Utils.isArray(tables)?tables.map(function (name) {
+                return {
+                  name:name,
+                  schema:more.root.exec.schema(name)
+                }
+              }):tables, url:more.root.url};
+            } else if (more.remains.length==2) 
+              return more.root.exec.select(more.remains[1],'*'); 
+            break;
+          case 'projects':
+            return more.root.exec.select('ProjTable','*');
+          case 'documents':
+            return more;
+          default:
+            if (more.root.flags.contains('sqlproj')) {
+              return more.root.exec.lookup('/'+more.remains.join('/'),cb);               
+            }
+            return more;
+        }
+      }  
+      if (more.root.kind == 'fs' && more.root.exec) {
+        if (cb) {
+        
+        } else {
+          result = more.root.exec.lookup('/'+more.remains.join('/'));
+          if (Utils.isObject(result) && result.dir) {
+            result.nodes = more.root.exec.list('/'+more.remains.join('/'));
+            if (result.nodes.files || result.nodes.dirs) 
+              result.nodes=result.nodes.dirs.concat(result.nodes.files);
+          }
+        }
+        return result;
+      }
+    }
+    return new Error('ENOTFOUND');
+  },
+  
+  mimeType: function (data) {
+    if (typeof data == 'string')
+      return data.replace(/[^\x20-\x7E\n\r\t\s]+/g, '').length==data.length?
+              'text/plain':'application/octet-stream';
+    else {
+      for(var i=0;i<data.length;i++) {
+        if ((data[i]<0x20 || data[i]>0x7e) && 
+            data[i] != 0x0a && 
+            data[i] != 0x0d && 
+            data[i] != 0x09) return 'application/octet-stream'; 
+      }
+      return 'text/plain';
+    }
+  },
+  
+  
+  mkdir : function (path,root,cb) {
+    var pel = path.split('/'),
+        root=root||DB.store,
+        base='',
+        entry;
+    if (pel[0]=='') pel=pel.slice(1);
+    while (pel.length) {
+      base += ('/'+pel[0]);
+      if (root && root.nodes[pel[0]] && root.nodes[pel[0]].kind != 'dir') {
+        root=root.nodes[pel[0]];
+        pel=pel.slice(1);
+        break;
+      } else if (!root.nodes[pel[0]]) root.nodes[pel[0]]={
+        kind:'dir',
+        time : Date(),
+        nodes:{}
+      }
+      root=root.nodes[pel[0]];
+      pel=pel.slice(1);
+    }
+    if (pel.length==0) return 1;
+    
+    if (root && root.kind && pel.length) {
+      var more = { remains:pel, base:base, root:root };
+      switch (root.kind) {
+        case 'db':
+          if (root.flags.contains('sqldoc')) {
+            return root.exec.mkdir('/'+more.remains.join('/'),null,cb);
+          }
+          break;
+      }
+      return 0;
+    } else return 1;
+
+  },
+    
+  ok : function (result) {
+    if (!result) return new Error('ENOTFOUND');
+    if (result instanceof Error) return result;
+    if (typeof result=='string') return new Error(result);
+    if (result.error) return new Error(result.error);
+    if (result.fs) result=result.fs;
+    result=result[Object.keys(result)[0]];
+    if (!result) return new Error('EIO');
+    if (result.error) return new Error(result.error);
+    else if (result.result) return result.result;
+    else return result;
+  },
+  
+  // Read file or document
+  // Returns: string|buffer|null 
+  read : function (path,mimetype,cb) {
+    var pel = path.split('/'),
+        root=DB.store,base='',
+        entry;
+    if (pel.length==1) entry=pel[0];
+    else {
+      entry=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        base += ('/'+pel[0]);
+        if (root.nodes)
+          root=root.nodes[pel[0]];
+        else
+          break;
+        pel=pel.slice(1);
+      }
+    }
+    if (root && root.nodes && root.nodes[entry]) {
+      return root.nodes[entry].data;
+    } else if (root && root.kind && pel.length) {
+      var more = { remains:pel, base:base, root:root };
+      switch (root.kind) {
+        case 'db':
+          if (root.flags.contains('sqldoc'))
+            return root.exec.read('/'+more.remains.concat([entry]).join('/'),cb);
+          if (pel[0]=='tables') {
+            return root.exec.select(entry,'*',cb);
+          }
+          break;
+        case 'fs':
+          return root.exec.read('/'+more.remains.join('/'),entry,mimetype,cb);
+          break;
+      }
+    }
+    return null;
+  },
+  
+  rename : function (path,name) {
+    var entry=DB.basename(path),
+        parent = DB.lookup(DB.dirname(path));
+    if (parent && parent.nodes) {
+      var node=parent.nodes[entry];
+      if (node) {
+        if (node.name) node.name=name;
+        delete parent.nodes[entry];
+        parent.nodes[name]=node;
+        return node;
+      }
+    }
+  },
+  
+  resolve : function (path) {
+    var parts = path.split('/'),
+        start = path.charAt(0),
+        rparts = [];
+    parts.forEach(function (part) {
+      if (part=='.') return;
+      if (part=='..' && rparts.length) return rparts.pop();
+      else if (part=='..') return;
+      rparts.push(part);
+    });
+    return rparts.length==1 && rparts[0]==''?start:rparts.join('/').replace(/\/\//g,'/');
+  },
+  
+  save : function (path) {
+    var pel = path.split('/'),
+        root=DB.store,base='',
+        file;
+    if (pel.length==1) file=path;
+    else {
+      file=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        base += ('/'+pel[0]);
+        if (root.nodes)
+          root=root.nodes[pel[0]];
+        else break;
+        pel=pel.slice(1);
+      }
+    }
+    if (pel.length==0 && root && root.nodes) {
+      var entry = root.nodes[file];
+      if (!entry) return;
+      if (entry.kind=='file')
+        Common.saveFile(entry.data, entry.name, entry.mimetype);
+      else if (entry.kind=='object')
+        Common.saveFile(JSONfn.stringify(entry.data), entry.name, 'text/plain');
+      else if (entry.kind=='db') {
+        var tables = entry.exec.tables();
+        var db = {
+          tables : {}
+        }
+        for(var i in tables) {
+          db.tables[tables[i]]={}
+          db.tables[tables[i]].schema=entry.exec.schema(tables[i]);
+          db.tables[tables[i]].rows=entry.exec.select(tables[i],'*');
+        }
+        Common.saveFile(JSONfn.stringify(db), entry.name, 'text/plain');        
+      }
+    } else {
+    
+    }
+  },
+  
+  shortName: function (name,length,cache) {
+    var chars = [],off=4;
+    name=name.toUpperCase().replace(/\.[a-zA-Z0-9]+$/,'').replace(/[_,\.\~\- \/\°\$\%\!\&]/g,''); 
+    if (name.length <= length) {
+      chars=name.split('');
+    } else {
+      for(var i = 0; i < 4; i++)
+        chars.push(name[i]);
+      for(var i = 4; i < length; i++) {
+        off += Math.max(1,((name.length-4)/(length-4))|0);
+        chars.push(name[off]);      
+      }
+    }
+    chars=chars.join('');
+    var index=0;
+    while (cache && cache[chars]) chars=chars.replace(/(..)$/,function (all,c) {
+      var digits=index++;
+      return String(Math.floor(digits/10))+String(digits%10);
+    })
+    if (cache) cache[chars]=1;
+    return chars;;
+  },
+  
+  store : {
+    kind:'dir',
+    name:'/',
+    flags:'',
+    time:Date(),
+    nodes:{}
+  },
+  
+  // SQL operations API (generic)
+  sql  : function (url) { return {
+    // create a new table
+    create: function (name,columns,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        create: { table: name },
+        columns:columns
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    // copy an entire table from this DB to another (dst: sqljson API)
+    // Hierarchical tables (e.g., sqlds) must be copied by the respective API (e.g, sqlds.copy)
+    copy : function (name,dst,options,cb) {
+      options=options||{};
+      if (!Utils.isObject(dst)) return new Error('EINVALID');
+      if (!cb) {
+        var result,stat;
+        var schema = this.schema(name);
+        if (stat=DB.error(schema)) return stat;
+        if (options.overwrite) {
+          result = dst.drop(name);
+          stat=DB.error(result);
+          if (stat) return stat;
+        }
+        result = dst.create(name,schema);
+        stat=DB.error(result);
+        if (stat) return stat;
+        var rows = this.count(name);
+        if (DB.error(rows)) return DB.error(rows);
+        rows=DB.ok(rows);
+        for (var i=1;i<(rows+1);i++) {
+          var data = this.select(name,'*','rowid="'+i+'"');
+          if (DB.error(data)) return DB.error(data);
+          result=dst.insert(name,DB.ok(data));
+          stat=DB.error(result);
+          if (options.progress) options.progress(i,rows,DB.ok(result));
+          if (stat) return stat;
+        }
+      }
+    },
+    count : function (name,count,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        select: name,
+        count:count||'*'
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    delete: function (name,where,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        delete: name,
+        where:where
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    do: function (cmd,cb) {
+
+    },
+    drop: function (name,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        drop: name
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    // returns { changes: number, lastInsertROWID: number, time: number }
+    insert: function (name,values,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        insert: name,
+        values:values
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    select: function (name,columns,where,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        select: name,
+        columns:columns,
+        where:where
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    schema: function (name, cb) {
+      var matched;
+      var result = DB.ok(DB.sqljson(this.url,{
+        schema:  name
+      }, cb?DB.fok(function (result) { 
+        if (Utils.isError(result)) return cb(result);
+        if (typeof result == 'string')
+          cb((matched=result.match(/\((.+)\)$/)) && matched[1].split(','))
+        else if (Array.isArray(result))
+          result.forEach(function (part) { cb((matched=part.match(/\((.+)\)$/)) && matched[1].split(',')) });
+        else
+          cb(result)}):null,cb!=undefined));
+      if (Utils.isError(result)) return result;
+      if (typeof result == 'string')
+        return (matched=result.match(/\((.+)\)$/)) && matched[1].split(',')
+      else if (Array.isArray(result))
+        return result.map(function (part) { return (matched=part.match(/\((.+)\)$/)) && matched[1].split(',') });
+    },
+    tables: function (cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        tables: {}
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    update: function (name,values,where,cb) {
+      return DB.ok(DB.sqljson(this.url,{
+        update: name,
+        values:values,
+        where:where,
+      }, cb?DB.fok(cb):null,cb!=undefined))
+    },
+    url : url,
+  }},
+
+   
+  // SQLfs API (data file orga)  TODO: new RPC API with micro program code!!!!
+  sqlhdfs: function (url) {
+    return {
+        // append table entry (tables has to be created separately)
+        appendTable: function (path,tablename,options,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              appendTable: [path,tablename,options||{}],
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        createFS: function (label,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              createFS: label,
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))
+        },
+        delete : function (path,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              delete: path,
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        // return fs node 
+        lookup: function (path,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              lookup: path,
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        mkdir: function (path,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              mkdir: path,
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        read: function (path,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              read: [path],
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        readDir: function (path,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              readDir: path,
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        readFile: function (path,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              readFile: [path],
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        rename: function (path,newname,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              rename: [path,newname],
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        writeFile: function (path,data,mimetype,cb) {
+          return DB.ok(DB.sqljson(this.url,{
+            hdfs: {
+              writeFile: [path,data,mimetype],
+            }
+          }, cb?DB.fok(cb):null,cb!=undefined))              
+        },
+        url : url,
+    }
+  },
+
+  
+  // SQLjson RPC client request (with optional access key)
+  // format url = "host:port" | "host:port:K1:K2:K3:.."  
+  sqljson : function (url,request,callback,async) {
+    var tokens = url.split(':');
+    if (tokens.length>2) { url = tokens.slice(0,2).join(':'); request.key= tokens.slice(2).join(':'); }
+    if (!async && !callback) {
+      return Utils.POST(url,request,null,true);
+    } else if (callback) {
+      return Utils.POST(url,request, function (res) {
+        // console.log(res);
+        callback(res);
+      },!async);
+    };
+  },
+  
+  strict:false,
+  
+  time : function (format) {
+    switch (format) {
+      case 'milli':
+      case 'ms':
+        return Date.now();
+      case 'YYYYMMDD':
+        var today = new Date();
+        return (today.getYear()+1900)+
+               (today.getMonth()<9?'0'+(today.getMonth()+1):today.getMonth()+1)+
+               (today.getDate()<10?'0'+today.getDate():today.getDate())
+      case 'YYYYMMDD@HHMM':
+        var today = new Date();
+        return (today.getYear()+1900)+
+               (today.getMonth()<9?'0'+(today.getMonth()+1):today.getMonth()+1)+
+               (today.getDate()<10?'0'+(today.getDate()):today.getDate())+
+               '@'+
+               (today.getHours()<9?'0'+(today.getHours()+1):today.getHours()+1)+
+               (today.getMinutes()<10?'0'+(today.getMinutes()):today.getMinutes())              
+      default:
+        return Date().toString();
+    }
+  },
+  
+  timeCompare : function (t1,t2) {
+    if (isNaN(Number(t1))) t1=Date.parse(t1);
+    if (isNaN(Number(t2))) t2=Date.parse(t2);
+    t1=Number(t1); t2=Number(t2);
+    return t1<t2?-1:(t1>t2?1:0);
+  },
+  
+  toArray: function (buff,ftyp,dims,layout) {
+    var ta = DB.toTypedArray(buff,ftyp);
+    if (!layout) layout=123;
+    if (!ta) return;
+    if (!dims) dims=[ta.length];
+    switch (dims.length) {
+      case 1: return Array.prototype.slice.call(ta);
+      case 2:
+        var a=[];
+        for(var i=0;i<dims[0];i++) {
+          var row=[];
+          for(var j=0;j<dims[1];j++) row[j]=ta[i*dims[1]+j];
+          a.push(row);
+        }
+        return a;
+    }
+  },
+
+  toBuffer : function (a) {
+    if (Utils.isBuffer(a)) return a;
+    if (Utils.isArray(a)) {
+      return DB.array2buffer(a)
+    }
+    if (Utils.isMatrix(a,true)) {
+      if (Utils.isTypedArray(a.data))
+        return Buffer(a.data.buffer) // Matrix??
+    }
+    if (Utils.isVector(a,true)) {
+      if (Utils.isTypedArray(a.data))
+        return Buffer(a.data.buffer) // Matrix??
+    }
+  },
+  
+  toMatrix: function (buff,ftyp,dims,layout) {
+    if (!Math.MatrixTA) return new Error('Math.MatrixTA not defined');
+    if (!Utils.isFunction(ftyp) || !Utils.isArray(dims)) return;
+    var ta = DB.toTypedArray(buff,ftyp);
+    return Math.MatrixTA({data:ta,dataspace:dims,dtn:Utils.TypedArrayToName(ftyp),layout:layout});
+  },
+  
+  toTypedArray: function (buff,ftyp) {
+    var i,ta;
+    if (buff.buffer instanceof ArrayBuffer) {
+      switch (ftyp) {
+        case Float32Array: return new Float32Array((new Uint8Array(buff)).buffer);
+        case Float64Array: return new Float64Array((new Uint8Array(buff)).buffer);
+        case Int8Array:    return new Int8Array((new Uint8Array(buff)).buffer);
+        case Int16Array:   return new Int16Array((new Uint8Array(buff)).buffer);
+        case Int32Array:   return new Int32Array((new Uint8Array(buff)).buffer);
+        case Uint8Array:    return new Uint8Array((new Uint8Array(buff)).buffer);
+        case Uint16Array:   return new Uint16Array((new Uint8Array(buff)).buffer);
+        case Uint32Array:   return new Unt32Array((new Uint8Array(buff)).buffer);
+      }
+    } else if (typeof Uint8Array.from != 'undefined') {
+      switch (ftyp) {
+        case Float32Array: return new Float32Array(Uint8Array.from(buff).buffer);
+        case Float64Array: return new Float64Array(Uint8Array.from(buff).buffer);
+        case Int8Array:    return new Int8Array(Uint8Array.from(buff).buffer);
+        case Int16Array:   return new Int16Array(Uint8Array.from(buff).buffer);
+        case Int32Array:   return new Int32Array(Uint8Array.from(buff).buffer);
+        case Uint8Array:   return new Uint8Array(Uint8Array.from(buff).buffer);
+        case Uint16Array:   return new Uint16Array(Uint8Array.from(buff).buffer);
+        case Uint32Array:   return new Uint32Array(Uint8Array.from(buff).buffer);
+      }
+    } else {
+      // Fall-back conversion
+      switch (ftyp) {
+        case Float32Array: 
+          ta=new Float32Array(buff.length/4);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readFloatLE(i*4);
+          return ta;
+        case Float64Array: 
+          ta=new Float64Array(buff.length/8);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readDoubleLE(i*8);
+          return ta;
+        case Int8Array: 
+          ta=new Int9Array(buff.length/2);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readInt8(i*2);
+          return ta;
+        case Int16Array: 
+          ta=new Int16Array(buff.length/2);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readInt16LE(i*2);
+          return ta;
+        case Int32Array: 
+          ta=new Int32Array(buff.length/4);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readInt32LE(i*4);
+          return ta;
+        case Uint8Array: 
+          ta=new Uint9Array(buff.length/2);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readUInt8(i*2);
+          return ta;
+        case Uint16Array: 
+          ta=new Uint16Array(buff.length/2);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readUInt16LE(i*2);
+          return ta;
+        case Uint32Array: 
+          ta=new Uint32Array(buff.length/4);
+          for(i=0;i<ta.length;i++) 
+            ta[i]=buff.readUInt32LE(i*4);
+          return ta;
+      }
+    }
+  },
+
+  // Create tree representation of store
+  tree : function (root,options) {
+    var top={},nodes,root=root||DB.store;
+
+    function add(node,entry) {
+      if (node.kind=='dir') {
+        var nodes={}
+        Object.keys(node.nodes).forEach(function (name) {
+              //nodes[name]=DB.tree(root.nodes[entry].nodes[name]);
+          // return nodes on opening/construction of sub-tree
+          nodes[name]={ _constructor:function () { 
+            var _nodes=DB.tree(node.nodes[name]);
+            return _nodes;
+          }}
+        });
+        return nodes;
+      }
+      if (node.kind=='db') { 
+        var entry={
+          name:node.name,
+          kind:node.kind,
+          time:node.time,
+        }
+        if (node.exec && node.exec.tables) {
+          // tables = root.nodes[entry].exec.tables();
+          entry.tables={ _constructor:function () { 
+            try {
+              var o={},tables;
+              tables = node.exec.tables();
+              if (Utils.isArray(tables)) {
+                  var coll = node.exec.schema(tables)
+                  tables.forEach(function (name,index) {
+                    var columns='?',result = coll && coll[index];
+                    if (result && result.length) {
+                      columns={};
+                      result.forEach(function (col) {
+                        var tokens = col.split(' ');
+                        columns[tokens[0]]=tokens.slice(1).join(' ');
+                      })
+                    }
+                    var rows=node.exec.count?node.exec.count(name):[];
+                    o[name]= {
+                      name:name,
+                      kind:'table',
+                      columns:columns,
+                      rows:!DB.error(rows)?rows[0]:-1,
+                    }
+                  });
+                }
+                return o;
+              } catch (e) {console.log(e); return o}
+          }} 
+        }
+        // console.log(node)
+        if (node.flags && node.flags.contains('sqlproj')) {
+          entry.projects= { _constructor:function () { 
+            var o={};
+            var rows = node.exec.list('/');
+            if (Utils.isArray(rows)) {
+              rows.forEach(function (row,index) {
+                o[row.name]= { }
+              });
+            }
+            return o;
+          }}
+        }
+        if (node.size != undefined)      entry.size     = node.size;
+        if (node.id != undefined)        entry.id       = node.id;
+        if (node.mimetype != undefined)  entry.mimetype = node.mimetype;
+        if (node.url != undefined)       entry.url      = node.url;
+        if (node.async != undefined)     entry.async    = node.async;
+        return entry;
+      }
+      return {
+          name:entry,
+          kind:node.kind,
+          time:node.time,
+      }
+    }
+    if (root.nodes) Object.keys(root.nodes).forEach(function(entry) {
+      top[entry]=add(root.nodes[entry],entry);
+    }); else top=add(root);
+    return top;
+  },
+  
+  types : [
+    'application/octet-stream',
+    'application/javascript',
+    'text/plain',  
+  ],
+    
+  wex : function (url,async) {
+    return {
+      lookup : function (path,cb) {
+        Utils.POST('localhost:11111',{
+          cmd:  'lookup',
+          path:  path,
+        },function (res) {
+          if (!res || !res.reply) {
+            if (cb) cb(res);
+            else result=res;
+            return;
+          }
+          if (cb) cb(res.reply);
+          else result=res.reply;
+        },!async)
+        return result;
+      },
+      list : function (dir,cb) {
+        var result;
+        Utils.POST('localhost:11111',{
+          cmd:  'list',
+          dir:  dir,
+        },function (res) {
+          if (!res || !res.reply) {
+            if (cb) cb(res);
+            else result=res;
+            return;
+          }
+          var dirs=res.reply.filter(function (entry) { return entry.dir })
+                            .sort(function (a,b) { return a.name<b.name?-1:1 }),
+              files=res.reply.filter(function (entry) { return !entry.dir })
+                             .sort(function (a,b) { return a.name<b.name?-1:1 });
+          if (cb) cb({files:files,dirs:dirs});
+          else result={files:files,dirs:dirs};
+        },!async);
+        return result;
+      },
+      read:  function (dir,entry,mimetype,cb) {
+        Utils.POST('localhost:11111',{
+          cmd:  'load',
+          dir:  dir,
+          file: entry,
+          mimetype:mimetype||'text',
+        },function (res) {
+          if (!res || !res.reply) {
+            if (cb) cb(res);
+            else result=res;
+            return;
+          }
+          if (cb) cb(res.reply);
+          else result=res.reply;
+        },!async)
+        return result;      
+      },
+      url:url,
+    }
+  },
+  
+  write : function (path,data,cb) {
+    var pel = path.split('/'),
+        root=DB.store,base='',
+        entry;
+    if (pel.length==1) entry=pel[0];
+    else {
+      entry=pel.pop();
+      if (pel[0]=='') pel=pel.slice(1);
+      while (pel.length) {
+        base += ('/'+pel[0]);
+        if (root.nodes)
+          root=root.nodes[pel[0]];
+        else
+          break;
+        pel=pel.slice(1);
+      }
+    }
+    if (root && root.nodes && root.nodes[entry]) {
+      root.nodes[entry].data=data;
+      return data.length
+    } else if (root && root.kind && pel.length) {
+      var more = { remains:pel, base:base, root:root };
+      switch (root.kind) {
+        case 'db':
+          if (root.flags.contains('sqldoc'))
+            return root.exec.write('/'+more.remains.concat([entry]).join('/'),data,cb);
+          break;
+      }
+    }
+    return -1;
+  },
+  
+  version : '1.6.6',
+}
+
+
+};
+BundleModuleCode['./db.sqlds']=function (module,exports,global,process){
+/*
+  Hierarchical DataSet Organisation
+  --------------------------------- 
+  
+  meta data: { datatype:string,dataspace:number [], index?:number, chunk?:[] }
+  type DataSetTable = Column {
+     id         : integer primary key,
+     type       : integer,  --  0:group, 1:direct data, 2:indirect, referenced indexed DataTable
+     name       : varchar(),
+     time       : integer,
+     meta       : varchar(), -- YAML/JSON
+     data       : blob|integer|varchar() -- DataTable name or serialized data
+   }
+   type DataTable = Columns {
+     index      : integer primary key,
+     type       : integer,  --  1:direct data, 2: indirect data, referenced indexed DataTable
+     meta       : varchar(), -- optional, YAML/JSON, for chunks ?
+     data       : blob,  
+   }
+   type meta = JSON {
+     datatype   : string,
+     dataspace  : [],
+     index ?    : number,   // type==2
+     meta : *,
+   }
+   
+  JSON API
+  ========
+  
+  type table = {
+    table : key string,
+    meta?: {},
+    rows : dataset|datagroup|data []
+  }
+  type dataset = {
+    name : key string,
+    meta : {},
+    dataspace : number [] | [],
+    datatype : datatype,
+    index?: number, // indexed data tables (dimension index)
+    data : []
+  }
+  type datagroup = {
+    group : key string,
+    meta? : {},
+    rows : dataset | datagroup [],
+  }
+  
+  type datatype = 'number' | 'float32' | 'float64' | 'int8' | 'int16' | 'int32' | ..
+                  'json' | 'string' | 'object'
+  type url = string with format "host:port" | "host:port:key1:key2:.." 
+
+*/
+
+// Hierarchical DataSet Tables
+// format url = "host:port" | "host:port:KEY1:KEY2:.."
+// type datatype = 'text' | 'utf8' | 'buffer' | 'array' | 'object' | 'Int16' | ..
+// There is one sqlds instance for each dataset table in the data base !
+
+DB.sqlds = function (url,table,options) {
+  function incr(x) { return x+1 };
+  return {
+    types : [
+        'GROUP',
+        // date table reference, table organized by indexed rows, repr. 1 dim of dataspace
+        'DATALINK',
+        // data embedded in table row (monolithic, index==null) 
+        'DATA',   
+    ],
+    // Append one row to a data table; data is serialized
+    append : function (handle,data,meta,cb) {
+      var stat;
+      if (stat=this.checkData(handle,data)) return stat; 
+      if (handle.datatable) {
+        // append row to linked datatable
+        var buffer = DB.toBuffer(data,handle.datatype);
+        result = DB.sqljson(this.url,{
+          insert : handle.datatable,
+          values : {
+            row   : null,
+            type  : 1,   // direct data
+            meta  : meta||'',
+            data  : buffer
+          }
+        });
+        if (DB.error(result)) return DB.error(result);
+        result=DB.ok(result);
+        return result.lastInsertROWID;         
+      }
+    },
+
+    // Check Table; report and perform GC (gc=true)
+    check: function (cb,gc) {
+      if (!cb) {
+        var result;
+        result = DB.sqljson(this.url,{
+            tables : {}
+        });
+        if (DB.error(result)) return DB.error(result);
+        result=DB.ok(result);
+        if (result.contains(this.table)) return true;
+        else throw "Dataset table "+this.table+" not found!";          
+      }    
+    },
+
+
+    // is data confirming to handle meta data?
+    checkData : function (handle,data) {
+      var format;
+      if (handle.datatype=='object' || handle.datatype=='buffer' || handle.datatype=='text' || handle.datatype=='utf8') return;
+      if (handle.dataspace) {
+        switch (handle.index) {
+          case 1:
+            format=handle.dataspace.slice(1);
+            break;
+          case 2:
+            format=[handle.dataspace[0]].concat(handle.dataspace.slice(2));
+            break;
+          case 3:
+            format=[handle.dataspace[0],handle.dataspace[1]].concat(handle.dataspace.slice(3));
+            break;
+          case undefined:
+            format=handle.dataspace;
+        }
+        if (format) {
+          var dataspace=this.toDataspace(data);
+          if (dataspace.length != format.length) return new Error('EDIM');
+          for(var i in format) {
+            if (format[i]==0) continue;
+            if (format[i]!=dataspace[i]) return new Error('ESIZE');
+          }
+        }
+      }
+      return;
+    },
+
+    close : function (handle) {
+      // Nothing todo!
+    },
+
+    // Creates a new data table (DataSetTable for vector/matrix/object/..) 
+    // and inserts table in the root table;
+    // Indexed data tables creates new physical table (each row associated to the index dimension);
+    // Non-indexed data tables are embedded in the root data table row.
+    // returns ds handle for the new data table
+    create : function (name,meta,cb) {
+      var self=this;
+      if (!meta || !meta.dataspace || !meta.datatype) return new Error('EINVALID');
+      var handle = {
+        datatype  : meta.datatype,
+        dataspace : meta.dataspace,
+        index     : meta.index,     // no index -> embedded DS
+      }
+      if (!cb) {
+        if (meta.index != undefined) {
+          // An indexed dataset
+          // 1. Create DataTable table 
+          var result = DB.sqljson(this.url,{
+              create : { table : this.table+':'+name },
+              columns : 
+                { row    : 'integer primary key',
+                  type   : 'integer',
+                  meta   : 'varchar(100)',
+                  data   : 'blob', // |integer|varchar() -- DataTable name or serialized data
+                }
+          });
+          if (DB.error(result)) return DB.error(result);
+          // 2. Append DataTable table to DataSetTable
+          result = DB.sqljson(this.url,{
+            insert : this.table,
+            values : {
+              name  : name,
+              type  : 2,
+              time  : DB.time(),
+              meta  : JSON.stringify(meta), 
+              data  : this.table+':'+name,
+            }
+          });
+          if (DB.error(result)) return DB.error(result);
+          handle.name=name;
+          handle.datatable = this.table+':'+name;
+          handle.append = function (data,meta,cb) {
+            return self.append(handle,data,meta,cb);
+          }
+          handle.meta = function (cb) {
+            // update dataspace
+            return self.meta(handle,cb);
+          }
+          handle.read = function (index,cb) {
+            return self.read(handle,index,cb);
+          }
+          handle.update = function (more,cb) {
+            // update dataspace
+            return self.update(handle,more,cb);
+          }
+          handle.write = function (index,data,cb) {
+            return self.write(handle,index,data,cb);
+          }
+        } else {
+          // Direct data: A monolithic data set embedded in dataset root table
+          result = DB.sqljson(this.url,{
+            insert : this.table,
+            values : {
+              name  : name,
+              type  : 1,
+              time  : DB.time(),
+              meta  : JSON.stringify(meta), 
+              data  : Buffer(0),
+            }
+          });
+          if (DB.error(result)) return DB.error(result);
+          handle.name=name;
+          handle.data=Buffer(0);
+          handle.meta = function (cb) {
+            // update dataspace
+            return self.meta(handle,cb);
+          }
+          handle.read = function (cb) {
+            return self.read(handle,null,cb);
+          }
+          handle.update = function (more,cb) {
+            // update dataspace
+            return self.update(handle,more,cb);
+          }
+          handle.write = function (data,cb) {
+            return self.write(handle,null,data,cb);
+          }            
+        }
+        for(var key in meta) {
+          if (typeof meta[key]=='function' ||
+            key == 'name' ||
+            key == 'data' ||
+            key == 'convert') continue;
+            handle[key]=meta[key];
+        }
+        return handle;
+
+      }      
+    },
+
+
+    // Deletes a data table row in the root dataset table 
+    delete : function (name,cb) {
+      var result;
+      if (!cb) {
+        if (name!='*') {
+          result = DB.sqljson(this.url,{
+            select : this.table,
+            columns : '*',
+            where : 'name="'+name+'"'
+          });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result)[0];
+          if (!result) return -1;  // not existing 
+          handle=JSON.parse(result.meta);
+          if (result.type==2) {
+            handle.datatable=result.data;
+            result = DB.sqljson(this.url, {
+              drop : handle.datatable,
+              forced : true,
+            });
+            if (DB.error(result)) return DB.error(result);         
+          }
+          result = DB.sqljson(this.url, {
+            delete : this.table,
+            where  : 'name="'+name+'"'
+          });
+          if (DB.error(result)) return DB.error(result);
+          return 0;
+        } else {
+          // Delete all rows of table!
+          result = DB.sqljson(this.url, {
+            delete : this.table,
+          });
+          if (DB.error(result)) return DB.error(result);
+          return 0;            
+        }
+      }        
+    },
+
+    info : function (name,cb) {
+      var meta;
+      if (!cb) {
+        var result;
+        if (name!='*') 
+          result = DB.sqljson(this.url,{
+            select : this.table,
+            columns : 'name,type,time,meta',
+            where : 'name="'+name+'"'
+          }); 
+        else
+          result = DB.sqljson(this.url,{
+            select : this.table,
+            columns : 'name,type,time,meta',
+          }) ;
+        if (DB.error(result)) return DB.error(result);
+        result=DB.ok(result);
+        if (!result[0]) return new Error('ENOTFOUND');
+        if (name=='*')
+        return result.map(function (row) {
+          return {
+            name:row.name,
+            type:row.type,
+            time:row.time,
+            meta:JSON.parse(row.meta)
+          }
+        });
+        meta=JSON.parse(result[0].meta);
+        meta.type=result[0].type;
+        return meta;          
+      }
+
+    },
+
+    // Return all rows of the current table
+    list : function (cb) {
+      if (!cb) {
+        var result = DB.sqljson(this.url,{
+          select : this.table,
+          columns : 'name,type,time,meta'
+        });
+        if (DB.error(result)) return DB.error(result);
+        result=DB.ok(result);
+        return result.map(function (row) {
+          if (row.meta) row.meta=JSON.parse(row.meta);
+          return row
+        });
+      }
+
+    },
+
+    // Get or set meta data of a dataset/data table (in a dataset group)
+    // if handle == null || 'meta', a row with name 'meta' is created or read
+    meta : function (handle,meta) {
+      var result;
+      if (typeof handle == 'string') {
+        // root table entry
+        if  (Utils.isObject(meta)) {
+          // write meta data row
+          result = DB.sqljson(this.url,{
+            insert : this.table,
+            values : {
+              name  : handle,
+              type  : 3,
+              time  : DB.time(),
+              meta  : JSON.stringify(meta), 
+              data  : Buffer(0),
+            }
+          });
+          if (DB.error(result)) {
+            // exists already? update table
+            if (DB.error(result).toString().contains('UNIQUE constraint failed')) {
+              result = DB.sqljson(this.url,{
+                update : this.table,
+                values : {
+                  type  : 3,
+                  time  : DB.time(),
+                  meta  : JSON.stringify(meta), 
+                },
+                where : 'name=\''+handle+'\''
+              });
+              if (DB.error(result)) return DB.error(result);
+              return meta;
+            }
+            return DB.error(result);
+          }
+          return 0;
+        } else if (!meta) {
+          // read meta data row
+          result = DB.sqljson(this.url,{
+            select : this.table,
+            columns : 'name,type,time,meta',
+            where : 'name=\''+handle+'\''
+          });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result)[0];
+          if (!result) return new Error('ENOTFOUND');
+          return JSON.parse(result.meta);
+        }
+        return;
+      }
+      // Get meta data of specific data set 
+      meta={};
+      if (handle.datatable) {
+          // get number of rows from secondary data table
+          var rows = DB.sqljson(this.url,{
+                select  : handle.datatable,
+                columns : 'rowid',
+              });
+          if (DB.error(rows)) return DB.error(rows);
+          rows=DB.ok(rows);
+          if (handle.index!=undefined) {
+            handle.dataspace[handle.index-1]=rows.length;
+          }
+      }
+      for(var key in handle) {
+        if (typeof handle[key]=='function' ||
+            key == 'data' ||
+            key == 'name' ||
+            key == 'convert') continue;
+        meta[key]=handle[key];
+      }
+      return meta;
+    },
+
+    // Open a dataset and return handle for a specific data table (entry) in
+    // the root table
+    open : function (name,cb)  {
+      var self=this,handle;
+      if (!cb) {
+        var result = DB.sqljson(this.url,{
+          select : this.table,
+          columns : '*',
+          where : 'name="'+name+'"'
+        });
+        if (DB.error(result)) return DB.error(result);
+        result=DB.ok(result)[0];
+        if (!result) return new Error('ENOTFOUND');
+        handle=JSON.parse(result.meta);
+        handle.name=name;
+        if (result.type==1) {
+          handle.data = result.data;
+          handle.meta = function (cb) {
+            // update dataspace
+            return self.meta(handle,cb);
+          }
+          handle.read = function (cb) {
+            return self.read(handle,null,cb);
+          }
+          handle.update = function (more,cb) {
+            // update dataspace
+            return self.update(handle,more,cb);
+          }
+          handle.write = function (data,cb) {
+            return self.write(handle,null,data,cb);
+          }          
+        } else if (result.type==2) {
+          handle.datatable=result.data;
+          handle.append = function (data,meta,cb) {
+            return self.append(handle,data,meta,cb);
+          }
+          handle.meta = function (cb) {
+            // update dataspace
+            return self.meta(handle,cb);
+          }
+          handle.read = function (index,cb) {
+            return self.read(handle,index,cb);
+          }
+          handle.update = function (more,cb) {
+            // update dataspace
+            return self.update(handle,more,cb);
+          }
+          handle.write = function (index,data,cb) {
+            return self.write(handle,index,data,cb);
+          }
+        }
+        return handle;          
+      }
+    },
+
+    // read a row, multiple rows, or the entire dataset (embedded data)
+    // meta data of linked datatable rows are added to the resulting data object
+    read : function (handle,index,cb) {
+      var data;
+      if (!cb) {
+        if (handle.datatable) {
+          // Linked Datatable
+          var result = DB.sqljson(this.url,{
+            select : handle.datatable,
+            columns : '*',
+            where : Utils.isArray(index)?
+                    'row in('+index.map(incr).join(',')+')':
+                    'row='+(index+1)
+          });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result);
+          if (result.length==0) return new Error('ENOTFOUND');
+          for (var i in result) if (!result[i].data) return  new Error('ENODATA');
+          if (Utils.isArray(index)) {
+            if (!handle.convert) data = result.map(function (row) {
+              var data = DB.buffer2array(row.data,handle.datatype); 
+              data.meta = row.meta;
+              return data;
+            }); else {
+              data = result.map(function (row) { 
+                row.data.meta=row.meta;
+                return row.data 
+              });
+            }
+          } else {
+            if (!handle.convert) data = DB.buffer2array(result[0].
+                                                        data,handle.datatype,
+                                                        this.subDataspace(handle));
+            else {
+              switch (handle.convert) {
+                case 'Array' :  data = DB.buffer2array(result[0].data,handle.datatype); break;
+                case 'Buffer':  data = result[0].data; break;
+                case 'Matrix':
+                case 'MatrixTA':
+                  if (!Utils.TypedArrayOfName[handle.datatype+'Array']) 
+                    return  new Error('Invalid data type for Matrix conversion ('+handle.datatype+')');
+                  data = DB.toMatrix(result[0].data,
+                                     Utils.TypedArrayOfName[handle.datatype+'Array'],
+                                     this.subDataspace(handle),handle.layout)
+
+              }
+            }
+            data.meta = result[0].meta;
+          }
+        } else if (handle.data) {
+          // Embedded Data
+          if (handle.data.length==0) return new Error('EEMPTY');
+          switch (handle.datatype) {
+            case 'text':    
+            case 'utf8':    
+              data = handle.data; break;
+            case 'object':  
+              data = JSON.parse(handle.data); break;
+            default:
+              switch (handle.convert) {
+                case 'Buffer':  data = handle.data; break;
+                case 'Matrix':
+                case 'MatrixTA':
+                  data = DB.toMatrix(handle.data,
+                                     Utils.TypedArrayOfName[handle.datatype+'Array'],
+                                     this.subDataspace(handle),handle.layout)
+                default:
+                  data = DB.buffer2array(handle.data,handle.datatype,handle.dataspace);
+              }
+          }
+        }
+        return data;
+      }
+    },
+    // Creates  dataset root table (DataSetTable) ifnotexist
+    setup : function (ifnotexist,cb) {
+      if (!cb) {
+        var result;
+        if (ifnotexist) {
+          result = DB.sqljson(this.url,{
+            tables : {}
+          });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result);
+          if (result.contains(this.table)) return 'Found table '+this.table;          
+        }
+        result = DB.sqljson(this.url,{
+            create : { table : this.table },
+            columns : 
+              { name    : 'varchar(300) primary key',
+                type  : 'integer',  // 0:group, 1:embedded data, 2:referenced DataTable
+                time  : 'integer',
+                meta  : 'varchar(1000)', // YAML/JSON
+                data  : 'blob', // |integer|varchar() -- DataTable name or serialized data
+              }}) 
+        if (DB.error(result)) return DB.error(result);
+        else return 'Created table '+this.table;
+      }    
+    },
+
+    // Returns type path signature of full or sub data set
+    signature : function (handle) {
+    
+    }, 
+    subDataspace : function (handle) {
+      // assuming only one hierarchy level
+      if (handle.dataspace) {
+        switch (handle.index) {
+          case 1:
+            format=handle.dataspace.slice(1);
+            break;
+          case 2:
+            format=[handle.dataspace[0]].concat(handle.dataspace.slice(2));
+            break;
+          case 3:
+            format=[handle.dataspace[0],handle.dataspace[1]].concat(handle.dataspace.slice(3));
+            break;
+          case undefined:
+            format=handle.dataspace;
+        }
+        return format;
+      }
+    },
+
+    toDataspace : function (o) {
+      if (Utils.isArrayArrayArray(o)) return [o.length,o[0].length,o[0][0].length];
+      else if (Utils.isArrayArray(o)) return [o.length,o[0].length];
+      else if (Utils.isArray(o))  return [o.length].concat(this.dataspaceOfData(o[0]));
+      else if (Utils.isMatrix(o)) return o.dataspace?o.dataspace:(o.levels?[o.levels,o.rows,o.columns]:[o.rows,o.columns]);
+      else if (Utils.isBuffer(o)) return [o.length];
+      return [];
+    },
+
+
+    // Update a DataTable or DataSetTable meta data
+    // set actual dataspace (update handle meta data)
+    // return meta data
+    update : function (handle,more,cb) {
+      var meta={};
+      if (handle.datatable) {
+        // linked data
+          var rows = DB.sqljson(this.url,{
+                select  : handle.datatable,
+                columns : 'rowid',
+              });
+          if (DB.error(rows)) return DB.error(rows);
+          rows=DB.ok(rows);
+          if (handle.index!=undefined) {
+            handle.dataspace[handle.index-1]=rows.length;
+          }
+      } else {
+        // embedded data
+        switch (handle.datatype) {
+
+        } 
+      }
+      for(var key in handle) {
+        if (typeof handle[key]=='function' ||
+            key == 'name' ||
+            key == 'data' ||
+            key == 'convert') continue;
+        meta[key]=handle[key];
+      }
+      if (more) for(var key in more) {
+        meta[key]=more[key];
+      }
+      var result = DB.sqljson(this.url,{
+            update : this.table,
+            values : 
+              handle.data?
+              { 
+                data  : handle.data,
+                meta  : JSON.stringify(meta), // YAML/JSON
+              }
+              :
+              { 
+                meta  : JSON.stringify(meta), // YAML/JSON
+              },
+            where : 'name="'+handle.name+'"'
+      });
+      if (DB.error(result)) return DB.error(result);
+      return meta;
+    },
+
+    // Encode data and modifiy (or add) dataset row (or entire dataset)
+    write : function (handle,index,data,cb) {
+      var stat;
+      if (stat=this.checkData(handle,data)) return stat; 
+      if (!cb) {
+        if (handle.data) {
+          // Embbeded data
+          switch (handle.datatype) {
+            case 'text':
+            case 'utf8':
+              handle.data=data;
+              break;
+            case 'object':
+              handle.data=JSON.stringify(data);
+              break;
+            default:
+             if (Utils.isArray(data))
+               handle.data = DB.array2buffer(data,handle.datatype,handle.dataspace);
+             else if (Utils.isMatrix(data) && Utils.isTypedArray(data.data))
+               handle.data = DB.toBuffer(data);            
+             else if (data.data && Utils.isArray(data.data))
+               handle.data = DB.array2buffer(data.data,handle.datatype,handle.dataspace); 
+          }
+          stat=this.update(handle);
+          if (DB.error(stat)) return stat;
+          return handle.data.length;
+        }
+      }
+    },
+    url : url,
+    table : table,    // root table
+    version : '1.4.1',
+  }
+}
+};
+BundleModuleCode['./db.sqldoc']=function (module,exports,global,process){
+
+// SQLdoc API
+// typeof @options = {table:string }
+// format url = "host:port" | "host:port:KEY1:KEY2:.."
+// SQLdoc API
+DB.sqldoc = function (url,options) {
+  if (typeof options == 'string') options={table:options};
+  options=options||{};
+  if (!options.table) options.table='DocTable';
+  if (!url.match(/:[0-9]+$/)) url += (':'+DB.config.ports.sqldoc);
+  return {
+      types : [
+        'SECTION',
+        'DOCUMENT',
+        'MEDIA',
+      ],
+      // Append document or media to directory (section)
+      append : function (dir,node) {
+        var root = typeof dir=='object'?dir:this.lookup(dir);
+        var result;
+        if (root && root.type==0) {
+          // check if row exists already 
+          if (this.lookupDirRow(root,node.name)) return 'Error: Exists';
+          root.content.push(node.id);
+          root.content=DB.array2buffer(root.content);
+          root.time=DB.time();
+          result = DB.sqljson(this.url,{
+            update  : this.table,
+            values  : root,
+            where   : 'id='+root.id
+          });   
+          if (DB.error(result)) return DB.error(result);        
+          else return DB.ok(result);            
+        }                    
+      },
+
+      // Check DocTable; report and perform GC (gc=true)
+      check: function (gc,log) {
+        var result;
+        var rows = DB.sqljson(this.url,{
+                select : this.table,
+                columns : '*',
+                exclude : { content: 'type!=0' },
+                });
+        if (DB.error(rows)) return DB.error(rows);
+        var table=[],i,j,top=0;
+        rows=DB.ok(rows);
+        for(i=0;i<rows.length;i++) {
+          var row=rows[i];
+          top=Math.max(top,row.id);
+          if (row.type==0) row.content=DB.buffer2array(row.content);
+          row.parent=[];
+          table[row.id]=row;
+        }
+        // mark
+        for(i=0;i<=top;i++) {
+          var row = table[i];
+          if (!row) continue;
+          if (row.type==0) {
+            var children = row.content;
+            for(j in children) {
+              table[children[j]].parent.push(i);
+            }
+          }
+        }
+        var orphans = [];
+        for(i=0;i<=top;i++) {
+          var row = table[i];
+          if (!row || row.id==1) continue;
+          if (row.parent.length==0) {
+            orphans.push(row);
+          }
+        }
+        if (gc && orphans.length) {
+          log=log||print;
+          log('Found '+orphans.length+' oprhans. Cleaning up ...');
+          for(i in orphans) {
+              var row = orphans[i];
+              result = DB.sqljson(this.url,{
+                delete  : this.table,
+                where   : 'id='+row.id
+              });   
+              if (DB.error(result)) return DB.error(result);
+              else log('Removed i-node '+row.id+': '+Utils.inspect(DB.ok(result)));                  
+          }
+        }
+        return {table:table,orphans:orphans};
+      },
+
+      // create document
+      createDocument : function (name,description,text) {
+          var node = { id:null,
+                name:name,
+                type:1,
+                mimetype:'markdown/text',
+                description:description||'',
+                template:'',
+                size:this.version>1?text.length:undefined,
+                time:DB.time(),
+                content:text||''
+              },
+              result = DB.sqljson(this.url,{
+                insert : options.table,
+                values:node
+                });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result);
+          node.id=result.lastInsertROWID;
+          return node;     
+      },
+
+      createFS : function (cb) {
+        if (!cb) {
+          var result = DB.sqljson(this.url,{
+            drop: options.table,
+          })
+          //if (DB.error(result)) return DB.error(result);*/
+
+          result = DB.sqljson(this.url,{
+            create : this.table,
+            columns : 
+              { id:'integer primary key',
+                name:'varchar(256)',
+                type:'integer',
+                mimetype:'varchar(100)',
+                description:'varchar(65000)',
+                template:'varchar(65000)',
+                size:this.version>1?'integer':null,
+                time:'integer',
+                content:'blob'
+              }}) 
+          if (DB.error(result)) return DB.error(result);
+          result = DB.sqljson(this.url,{
+            insert : this.table,
+            values:
+              { id:null,
+                name:'/',
+                type:0,
+                mimetype:'dir',
+                description:'root',
+                template:'',
+                size:this.version>1?0:null,
+                time:DB.time(),
+                content:DB.array2buffer([])
+              }})
+          return DB.ok(result);
+        }
+      },
+
+      // add media file
+      createMedia : function (name,data,mimetype) {
+          var node = { id:null,
+                name:name,
+                type:2,
+                mimetype:mimetype||'stream/octet',
+                description:'',
+                template:'',
+                size:this.version>1?data.length:null,
+                time:DB.time(),
+                content:data
+              },
+              result = DB.sqljson(this.url,{
+                insert : options.table,
+                values:node
+                });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result);
+          node.id=result.lastInsertROWID;
+          return node;     
+      },
+
+      delete : function (path,cb) {
+        var dir=DB.dirname(path),entry=DB.basename(path);
+        if (!cb) {
+          var root = this.lookup(dir);
+          if (root) {
+            var row = this.lookupDirRow(root,entry,true);
+            if (row) {
+              // unlink from parent row
+              root.content=root.content.filter(function (id) {
+                return id!=row.id;
+              });
+              root.content=DB.array2buffer(root.content);
+              root.time=DB.time();
+              var result = DB.sqljson(this.url,{
+                update  : this.table,
+                values  : root,
+                where   : 'id='+root.id
+              });   
+              if (DB.error(result)) return DB.error(result);       
+              // Remove entry row, too!
+              result = DB.sqljson(this.url,{
+                delete  : this.table,
+                where   : 'id='+row.id
+              });   
+              if (DB.error(result)) return DB.error(result);       
+              else return 1;            
+
+            }
+          }
+        }  
+        return 0;
+      },
+
+      list : function (path,cb) {
+        if (!cb) {
+          var root;
+          if (path=='*') {
+            // return all rows
+            var rows = DB.sqljson(this.url,{
+                select : this.table,
+                columns : '*',
+                exclude : { content: 'type!=0' },
+                });
+            if (DB.error(rows)) return DB.error(rows);
+            rows=DB.ok(rows);
+            for(var i in rows) if (rows[i].type==0) 
+              rows[i].content=DB.buffer2array(rows[i].content);
+            return rows
+          }
+          if (path=='/') {
+            root=DB.sqljson(this.url, {
+              select  : this.table,
+              columns : '*',
+              where   : 'id=1',
+              exclude : { content: 'type!=0' },
+            });
+            if (DB.error(root)) return DB.error(root);
+            root=DB.ok(root)[0];
+            if (root.type==0) root.content=DB.buffer2array(root.content);
+          } else
+            root=this.lookup(path);
+          if (DB.error(root)) return DB.error(root);
+          if (root.type==0) {
+            // console.log('id in ('+root.content.join(',')+')')
+            var rows = DB.sqljson(this.url,{
+                select : this.table,
+                columns : 'id,name,type,mimetype,'+(this.version>1?'size,':'')+'description,time',
+                where   : 'id in ('+root.content.join(',')+')'
+                });
+            if (DB.error(rows)) return DB.error(rows);
+            return DB.ok(rows);
+          }
+        } 
+      },
+
+      lookup : function (path,cb,info) {
+        // remove leading slash
+        path=path.replace(/^\//,'');
+        var rpc = {
+            loop : {
+              vars : { node : {}, rows:[], result:{}, parts:path.split('/'), index:0, found:{}, },
+              init : [
+                {
+                  select : this.table,
+                  columns : '*',
+                  where : 'id=1',
+                  target : 'node',
+                  decode : { content:'uint32' },
+                  index : 0,
+                },
+              ],
+              cond : 'node && node.type==0 && index < parts.length',
+              make : [
+                {
+                  select : this.table,
+                  columns : info?'id,name,type,mimetype,'+(this.version>1?'size,':'')+'description,time':'*',
+                  where : 'idlist(node.content)',
+                  target : 'rows',
+                },
+                {
+                  find : '$.name==parts[index]',
+                  source : 'rows',
+                  target : 'found',
+                },
+                {
+                  ifthen  : '!found',
+                  raise : 'ENOTFOUND', // reserved words: break, continue
+                },
+                { ifthen : 'found.type==0',
+                  make : [
+                    { decode : { $:'found', content:'uint32' }}
+                  ]
+                },
+                { incr : 'index'},
+                { assign : 'node=found'},
+              ],
+              finalize : [
+                { result : 'node' }
+              ],
+              //error : [
+              //  { result : { error : 'EFAILED' }}
+              //],
+            }
+        };        
+        if (!cb) {
+          // SQLjson microprogram iterating path on server
+          var result = DB.sqljson(this.url,rpc);
+          if (DB.error(result)) return DB.error(result);
+          if (result.type==0 && !info) result.content=DB.buffer2array(result.content);
+          return result;
+        } else {
+          return DB.sqljson(this.url,rpc,function (result) {
+            if (DB.error(result)) return cb(DB.error(result));
+            if (result.type==0 && !info) result.content=DB.buffer2array(result.content);
+            cb(result);
+          },true);
+        }
+      },
+
+      lookupDirRow: function (root,entry,info) {
+        if (root && root.content && root.content.length) {
+          var ids,rows;
+          if (root.content) ids=DB.buffer2array(root.content);
+          ids = ids.map(function (id) { return 'id='+id}).join(' or ');
+          rows = DB.sqljson(this.url,{
+                select  : this.table,
+                columns : info?'id,name,type,mimetype,'+(this.version>1?'size,':'')+'description,time':'*',
+                where   : ids,
+                exclude : { content: 'type!=0' },
+            });
+          if (DB.error(rows)) return DB.error(rows);
+          else rows=DB.ok(rows);
+          var found;
+          for(var p in rows) if (rows[p].name==entry) {found=rows[p]; break};
+          if (!found) return;
+          else {
+            if (found.type==0 && !info) found.content=DB.buffer2array(found.content);
+            return found;
+          }
+        } else return;
+      },
+
+      lookupDirRows: function (root,info,cb) {
+        if (root && root.content && root.content.length) {
+          var ids,rows;
+          if (root.content) ids=DB.buffer2array(root.content);
+          ids = ids.map(function (id) { return 'id='+id}).join(' or ');
+          rows = DB.sqljson(this.url,{
+                select  : this.table,
+                columns : info?'id,name,type,mimetype,description,time':'*',
+                where   : ids,
+                exclude : { content: 'type!=0' },
+              });
+          if (DB.error(rows)) return [];
+          else rows=DB.ok(rows);
+          for(var p in rows) 
+            if (rows[p].type==0 && !info) 
+              rows[p].content=DB.buffer2array(rows[p].content);
+          return rows;
+        } else return [];
+      },
+
+      mkdir : function (path,dirname,cb) {
+        if (!dirname) dirname=DB.basename(path),
+                      path=DB.dirname(path);
+        var row = this.lookup(path);
+        var result2;
+        if (row && row.type==0) {
+          // check if folder already exists
+          if (this.lookupDirRow(row,dirname)) return 'Error: Exists';
+          var result = DB.sqljson(this.url,{
+            insert : this.table,
+            values:
+              { id:null,
+                name:dirname,
+                type:0,
+                mimetype:'dir',
+                size:this.version>1?0:undefined,
+                description:'',
+                template:'',
+                time:DB.time(),
+                content:DB.array2buffer([])
+              }})
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result);
+          row.content.push(result.lastInsertROWID);
+          row.content=DB.array2buffer(row.content);
+          result2 = DB.sqljson(this.url,{
+            update :  this.table,
+            values  : row,
+            where   : 'id='+row.id
+            });   
+          if (DB.error(result2)) return DB.error(result2);        
+          else return DB.ok(result);            
+        }          
+      },
+
+      // return node content
+      read: function (path,cb) {
+        if (!cb) {
+          var node=this.lookup(path,cb);
+          if (DB.error(node)) return DB.error(node);
+          if (node.content) return node.content;
+        } else return this.lookup(path,function (node) {
+            if (DB.error(node)) return cb(DB.error(node));
+            return cb(node.content);
+        });
+      },
+
+      // Synchronize two DocTables
+      // @second : sqldoc {}  
+      sync : function (second,log) {
+        var i,result,
+            left  = this.list('*'),
+            right = second.list('*');
+        log=log||print;
+        if (Utils.isError(left)) return left;
+        if (Utils.isError(right)) return right;
+        // Find differences
+        var table0=[],table1=[];
+        for(i in left)  table0[left[i].id]  = left[i];        
+        for(i in right) table1[right[i].id] = right[i];
+        // Run from left to right
+        for(i in table0) {
+            if (table1[i]) {
+              if (table0[i].type != table1[i].type ||
+                  table0[i].name != table1[i].name) {
+                log('Row #'+i+' inconsistent! Left: '+
+                    Utils.inspect(table0[i])+' Right: '+
+                    Utils.inspect(table1[i]));
+                continue;
+              }
+              var delta = DB.timeCompare(table0[i].time,table1[i].time);
+              if (delta>0) {
+                log('Updating newer row #'+i+' '+table0[i].name+
+                    ' '+this.url+' -> '+second.url);
+                result = DB.sqljson(this.url,{
+                  select : this.table,
+                  columns : '*',
+                  where   : 'id='+i
+                });
+                if (DB.error(result)) return DB.error(result);
+                result=DB.ok(result)[0];
+                if (!result) return new Error ('ENOTFOUND');
+                result = DB.sqljson(second.url,{
+                  update : second.table,
+                  values  : result,
+                  where   : 'id='+result.id
+                });
+                if (DB.error(result)) return DB.error(result);                  
+              }
+            } else {
+              log('Row #'+i+' '+table0[i].name+' is missing on '+second.url+'. Adding ..');
+                result = DB.sqljson(this.url,{
+                  select : this.table,
+                  columns : '*',
+                  where   : 'id='+i
+                });
+                if (DB.error(result)) return DB.error(result);
+                result=DB.ok(result)[0];
+                if (!result) return new Error ('ENOTFOUND');
+                result.rowid=Number(i);
+                result = DB.sqljson(second.url,{
+                  insert : second.table,
+                  values  : result,
+                });
+                if (DB.error(result)) return DB.error(result);                                  
+            }
+        }  
+      },
+
+      // update entire doctable row
+      update : function (node) {
+          node.time=DB.time();
+          var result = DB.sqljson(this.url,{
+                update : this.table,
+                values  : node,
+                where   : 'id='+node.id
+              });
+          if (DB.error(result)) return DB.error(result);
+          result=DB.ok(result);
+          return result;   
+      },
+
+      write : function (path,data,cb) {
+        var root,node,dir=DB.dirname(path),entry=DB.basename(path);
+        if (!cb) {
+          var root = this.lookup(dir);
+          if (root) {
+            node  = this.lookupDirRow(root,entry);
+            if (node) {
+              node.content=data; // encode data?
+              var res = this.update(node);
+              if (res && res.changes) return data.length;
+            } else {
+              // create file
+              var doc,mimetype = typeof cb=='string'?cb:DB.mimeType(data);
+              if (mimetype.indexOf('text')==0)
+                doc=this.createDocument(entry,'',data);
+              else
+                doc=this.createMedia(entry,'',data);
+              if (DB.error(doc)) return doc;
+              res=this.append(root,doc);
+              if (DB.error(res)) return DB.error(res);
+              if (res && res.changes) return data.length;
+            }
+          }
+        }
+      },
+
+      url:url,
+      table:options.table,
+      version:1,
+  } 
+}
+};
+BundleModuleCode['./db.sqlproj']=function (module,exports,global,process){
+// SQLproj API (project orga)
+// TODO: directories
+DB.sqlproj = function (url,options) {
+  options=options||{};
+  if (!options.table) options.table='ProjTable';
+  if (!url.match(/:[0-9]+$/)) url += (':'+DB.config.ports.sqlproj);
+  return {
+    // Check Table; report and perform GC (gc=true)
+    check: function (gc) {
+
+    },
+
+    delete : function (path,cb ) {
+      var parts = path.split('/');
+      if (parts.length > 2) return 0; // TODO dirs
+      if (!cb) {
+        var name = parts[1]||parts[0];
+        var result = DB.sqljson(this.url,{
+            delete : this.table,
+            where : 'name="'+name+'"'
+        });
+        return result?1:0;  
+      }      
+    },
+
+    list : function (path, cb) {
+      if (path!='' && path!='/') return; // TODO dirs
+      if (!cb) {
+        var rows = this.sql.select(this.table,'name,time,description');
+        return rows||[];
+      }
+    },
+
+    lookup : function (name,cb) {
+      if (name=='/') return this.list(name,cb);
+      var rows = this.sql.select(this.table,'*','name="'+name+'"',cb?function (row) {
+        if (rows && rows.length==1) cb(rows[0]); else cb();
+      }:null);
+      if (rows && rows.length==1) return rows[0];
+    },
+
+    read: function (name,cb) {
+      var rows = this.sql.select(this.table,'*','name="'+name+'"',cb?function (rows) {
+        if (rows && rows.length==1) cb(rows[0].data);
+      }:null);
+      if (rows && rows.length==1) return rows[0].data;
+    },
+
+    // if the root project table does not exist creat the table
+    setup : function () {
+
+    },
+
+    sync : function (second,log,test) {
+      var i,result,
+          left  = this.list('/'),
+          right = second.list('/');
+
+      log=log||print;
+      if (Utils.isError(left)) return left;
+      if (Utils.isError(right)) return right;
+      // Find differences
+      var table0=[],table1=[];
+      for(i in left)  table0[left[i].name]  = left[i];        
+      for(i in right) table1[right[i].name] = right[i];
+      // Run from left to right
+      for(i in table0) {
+          if (table1[i]) {
+            var delta = DB.timeCompare(table0[i].time,table1[i].time);
+            if (delta>0) {
+              log('Updating newer row "'+i+'" '+
+                  this.url+' -> '+second.url);
+              result = DB.sqljson(this.url,{
+                select : this.table,
+                columns : '*',
+                where   : 'name=\''+i+'\''
+              });
+              if (DB.error(result)) return DB.error(result);
+              result=DB.ok(result)[0];
+              if (!result) return new Error ('ENOTFOUND');
+              if (test) continue;
+              result = DB.sqljson(second.url,{
+                update : second.table,
+                values  : result,
+                where   : 'name=\''+result.name+'\''
+              });
+              if (DB.error(result)) return DB.error(result);                  
+            }
+          } else {
+            log('Row "'+i+'" is missing on '+second.url+'. Adding ..');
+              result = DB.sqljson(this.url,{
+                select : this.table,
+                columns : '*',
+                where   : 'name=\''+i+'\''
+              });
+              if (DB.error(result)) return DB.error(result);
+              result=DB.ok(result)[0];
+              if (!result) return new Error ('ENOTFOUND');
+              if (test) continue;
+              result = DB.sqljson(second.url,{
+                insert : second.table,
+                values  : result,
+              });
+              if (DB.error(result)) return DB.error(result);                                  
+          }
+      }  
+    },
+    write : function (name,data,description,cb) {
+      var row = this.sql.select(this.table,'*','name="'+name+'"');
+      if (row.length==0) {
+        var result = this.sql.insert(this.table,{
+          id:DB.shortName(name,8),
+          name:name,
+          description:description||'',
+          time:DB.time(),
+          data:data
+        });
+      } else if (row.length==1) {
+        row=row[0];
+        row.data=data;
+        row.time=DB.time();
+        if (description!='') row.description=description;
+        result = this.sql.update(this.table,row,'name="'+name+'"');
+      }
+
+    },
+    sql : DB.sql(url),
+    url : url,
+    table : options.table,
+  } 
+}
+};
+
+var Base64=Require('os/base64');
+module.exports = Require('plugins/db/db.js');
+if (typeof window != 'undefined') for(var p in module.exports) window[p]=module.exports[p];
+return module.exports;

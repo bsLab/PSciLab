@@ -1,0 +1,3503 @@
+var CoreModule = {};
+CoreModule['com/io']='com/io';
+CoreModule['com/pwgen']='com/pwgen.lw';
+CoreModule['assert']='os/assert';
+CoreModule['crypto']='os/crypto.rand';
+CoreModule['events']='os/events';
+CoreModule['path']='os/path';
+CoreModule['string_decoder']='os/string_decoder';
+CoreModule['util']='util';
+CoreModule['http']='http';
+CoreModule['deasync']='deasync';
+CoreModule['os']='os';
+CoreModule['net']='net';
+CoreModule['fs']='fs';
+CoreModule['stream']='';
+CoreModule['url']='';
+CoreModule['zlib']='';
+CoreModule['child_process']='';
+
+var BundleModuleCode=[];
+var BundleObjectCode=[];
+var BundleModules = [];
+var Fs = require("fs");
+if (typeof __dirname == 'undefined') __dirname = '';
+if (typeof __filename == 'undefined') __filename = 'plugins/pcsp/pcsp.js';
+//From compat.js
+var any = undefined;
+var empty = null;
+var none = null;
+var _ = undefined;
+var int = function (v) {return v|0};
+var div = function (a,b) {return a/b|0};
+var print = function (msg) {console.log(msg)};
+if (typeof global == 'undefined') global={};
+PATH=[process.cwd(),".","/home/sbosse/proj/workbook/src",""];
+function _isdir(path) {
+  var stats=Fs.statSync(path);
+  return stats && stats.isDirectory()};
+function _search(index,file) {
+  if (PATH.length==index) return file;
+  var path=PATH[index];
+  if (Fs.existsSync(path+"/"+file+".js")) return path+"/"+file+".js";
+  else if (Fs.existsSync(path+"/"+file) && !_isdir(path+"/"+file)) return path+"/"+file;
+  else return _search(index+1,file);
+ }
+var __library=arguments&&arguments[3];
+function Require(modupath) { 
+  var file,filepath;
+  if (BundleModules[modupath]) return BundleModules[modupath];
+  var exports={}; var module={exports:exports};
+  if (CoreModule[modupath]!=undefined) modupath=CoreModule[modupath];
+  if (modupath=='') return undefined;
+  if (BundleModuleCode[modupath]) BundleModuleCode[modupath](module,exports,global,process);
+  else if (BundleObjectCode[modupath]) BundleObjectCode[modupath](module,exports,global,process);
+  else { try { file=_search(0,modupath); module = require(file)}
+  catch (e) { var more="";
+   if ((e.name==="SyntaxError"||e.name==="TypeError") && file) {
+      var src=Fs.readFileSync(file,"utf8");
+      var Esprima = Require("parser/esprima");
+      try {
+        var ast = Esprima.parse(src, { tolerant: true, loc:true });
+        if (ast.errors && ast.errors.length>0) more = ", "+ast.errors[0];
+      } catch (e) {
+        if (e.lineNumber) more = ", in line "+e.lineNumber;
+      }
+   }
+   console.log("Require import of "+modupath+" ("+file+") failed: "+e+more);
+   // if (e.stack) console.log(e.stack);
+   throw e; // process.exit(-1);
+  }}
+  BundleModules[modupath]=module.exports||module;
+  return module.exports||module;};
+FilesEmbedded=global.FilesEmbedded = {};
+FileEmbedd=global.FileEmbedd = function (path,format) {};
+FileEmbedded=global.FileEmbedded = function (path,format) {return FilesEmbedded[path](format);};
+global.TARGET='node';
+
+BundleModuleCode['com/io']=function (module,exports,global,process){
+/**
+ **      ==================================
+ **      OOOO   OOOO OOOO  O      O   OOOO
+ **      O   O  O    O     O     O O  O   O
+ **      O   O  O    O     O     O O  O   O
+ **      OOOO   OOOO OOOO  O     OOO  OOOO
+ **      O   O     O    O  O    O   O O   O
+ **      O   O     O    O  O    O   O O   O
+ **      OOOO   OOOO OOOO  OOOO O   O OOOO
+ **      ==================================
+ **      BSSLAB, Dr. Stefan Bosse http://www.bsslab.de
+ **
+ **      COPYRIGHT: THIS SOFTWARE, EXECUTABLE AND SOURCE CODE IS OWNED
+ **                 BY THE AUTHOR.
+ **                 THIS SOURCE CODE MAY NOT BE COPIED, EXTRACTED,
+ **                 MODIFIED, OR OTHERWISE USED IN A CONTEXT
+ **                 OUTSIDE OF THE SOFTWARE SYSTEM.
+ **
+ **    $AUTHORS:     Stefan Bosse
+ **    $INITIAL:     (C) 2006-2020 BSSLAB
+ **    $CREATED:     sbosse on 3/28/15.
+ **    $VERSION:     1.7.1X
+ **
+ **    $INFO:
+ *
+ * This module encapsulates all IO operations (except networking) supporting
+ * node.js applications.
+ *
+ **    $ENDOFINFO
+ */
+
+if (global.TARGET=='node')  { 
+
+ /*
+  ************
+  ** Node.js
+  ************
+  */
+ var util = require('util');
+ var GetEnv = Require('os/getenv');
+ var Base64 = Require('os/base64');
+ var Fs = require('fs');
+ var os = require('os');
+ var child = require('child_process');
+
+ var stderr_fun = function (str) { process.stderr.write(str); };
+ var stdout_fun = function (str) { process.stdout.write(str); };
+
+ /*
+  ** node.js specific
+  */
+
+ var tracefile = undefined;
+ var tracing = true;
+
+ /**
+ * Open a module and append all exported properties to the current global object.
+ * (top-level scope)
+ */
+ global.open = function(name,as) {
+   var module = Require(name);
+   for (var p in module) {
+     global[p] = module[p];
+   };
+   if (as) global[as]=module;
+ }
+
+/*
+ ** node.js
+ */
+var io = {
+    checkOptions : function(options,defaultOptions) {
+      return Object.assign({}, defaultOptions||{}, options) },
+      
+    checkOption : function (option,defaultOption) { 
+      return option==undefined? defaultOption:option },
+
+    config: {
+        columns:undefined,
+        rows:undefined
+    },
+    /**************
+     ** FILE IO
+     ***************/
+    /**
+     *
+     * @param fd
+     */
+    close: function (fd) {
+        Fs.closeSync(fd);
+    },
+    /**
+     *
+     * @param path
+     */
+    exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /**
+     *
+     * @param path
+     */
+    file_exists: function (path) {
+        return Fs.existsSync(path);
+    },
+    /** Search a file by iterating global PATH variable.
+     *
+     * @param name  File name or partial (relative) path
+     */
+    file_search: function (name) {
+        // Expecting global PATH variable !?
+        if (this.file_exists(name)) return name; 
+        else if (typeof PATH !== 'undefined') {
+          for (var p in PATH) {
+            if (this.file_exists(PATH[p]+'/'+name)) return (PATH[p]+'/'+name);
+          }
+          return undefined;
+        } else return undefined;
+    },
+    /**
+     *
+     * @param path
+     * @returns {number}
+     */
+    file_size: function (path) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            return stat.size;
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param timekind a c m
+     * @returns {number}
+     */
+    file_time: function (path,timekind) {
+        var stat = Fs.statSync(path);
+        if (stat != undefined)
+            switch (timekind) {
+                case 'a': return stat.atime.getTime()/1000;
+                case 'c': return stat.ctime.getTime()/1000;
+                case 'm': return stat.mtime.getTime()/1000;
+                default: return stat.mtime.getTime()/1000;
+            }
+        else
+            return -1;
+    },
+    /**
+     *
+     * @param path
+     * @param mode
+     * @returns {*}
+     */
+    open: function (path, mode) {
+        return Fs.openSync(path, mode);
+    },
+    /**
+     *
+     * @param fd
+     * @param len
+     * @param foff
+     */
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    /**
+     *
+     * @param path
+     * @returns {string|undefined}
+     */
+    read_file: function (path) {
+        try {
+            return Fs.readFileSync(path,'utf8');
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @returns {*}
+     */
+    read_file_bin: function (path) {
+        try {
+            return Fs.readFileSync(path);
+        } catch (e) {
+            return undefined;
+        }
+    },
+    /**
+     *
+     * @param fd
+     */
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {number}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return Fs.readSync(fd, buf, boff, len, foff);
+    },
+    /**
+     *
+     * @param fd
+     */
+    sync: function (fd) {
+        Fs.fsyncSync(fd);
+    },
+    
+    time: function () {
+      return Date.now()
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {number}
+     */
+    write: function (fd, data, foff) {
+        return Fs.writeSync(fd, data, foff);
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {number}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return Fs.writeSync(fd, buf, bpos, blen, foff);
+    },
+    /**
+     *
+     * @param path
+     * @param {string} buf
+     */
+    write_file: function (path,str) {
+        try {
+            Fs.writeFileSync(path, str, 'utf8');
+            return str.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param path
+     * @param buf
+     * @returns {*}
+     */
+    write_file_bin: function (path,buf) {
+        try {
+            Fs.writeFileSync(path, buf, 'binary');
+            return buf.length;
+        } catch (e) {
+            return -1;
+        }
+    },
+    /**
+     *
+     * @param fd
+     * @param {string} str
+     * @returns {number}
+     */
+    write_line: function (fd, str) {
+        return Fs.writeSync(fd, str+NL);
+    },
+
+    /****************
+     ** CONSOLE IO
+     ****************/
+    /**
+     *
+     * @param msg
+     */
+    debug: function (msg) {
+        console.error('Debug: ' + msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    err: function (msg) {
+        console.error('Error: ' + msg);
+        throw Error(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    fail: function (msg) {
+        console.error('Fatal Error: ' + msg);
+        process.exit(0);
+    },
+    /**
+     *
+     * @param obj
+     */
+    inspect: function (obj,depth) {return util.inspect(obj,{showHidden: false, 
+                                                            depth: depth?depth:2})},
+
+    /**
+     * 
+     */
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (!e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        if (where==undefined) this.out(e);
+        else this.out(where+': '+e);
+        this.out('Stack Trace');
+        this.out('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                this.out(line);
+            }
+        }
+        this.out('--------------------------------');
+    },
+     /**
+     *
+     * @param e
+     * @param where
+     */
+    sprintstack: function (e) {
+        var str='';
+        if (e==_ || !e.stack) e=new Error(e);
+        var stack = e.stack //.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .replace(/^Object.eval\s*\(/gm, '')
+            .split('\n');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                if (str!='') str += '\n';
+                str += '  at '+line;
+            }
+        }
+        return str;
+    },
+   /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    out: function (msg) {
+        console.warn(msg)
+    },
+    /**
+     *
+     * @param msg
+     */
+    warn: function (msg) {
+        console.warn('Warning: ' + msg);
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    /**
+     *
+     * @param fun
+     */
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+    /**
+     *
+     * @param msg
+     */
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    /**
+     *
+     * @param msg
+     */
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            Fs.writeSync(tracefile, '[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        tracefile = Fs.openSync(path, 'w+');
+        if (tracefile != undefined) this.tracing = false;
+    },
+
+    /**************
+     ** Process control
+     ***************/
+    exit: function (n) {
+        process.exit(n);
+    },
+    /**
+     *
+     * @returns {*} RSS HEAP in kBytes {data,heap}
+     */
+    mem: function () {
+        var mem = process.memoryUsage();
+        return {data:(mem.rss/1024)|0,heap:(mem.heapUsed/1024)|0};
+    },
+    /****************************
+     ** Environment and Arguments
+     ****************************/
+    getenv: function (name, def) {
+        return GetEnv(name, def);
+    },
+    workdir: function () {
+        return this.getenv('PWD','');
+    },
+
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return process.argv;
+    },
+
+    sleep: function(delay) {
+      var start = new Date().getTime();
+      while (new Date().getTime() < start + delay);
+    },
+    
+    /**
+     *  Process management
+     */
+    fork: child.fork,
+    exec: child.exec,
+    spawn: child.spawn,
+
+    /**
+     * OS
+     */
+    hostname: os.hostname
+
+  };
+} else {
+ /*
+  ************
+  ** Browser
+  ************
+  */
+  var tracing = true;
+  var stderr_fun = function (str) { console.log(str); };
+  var stdout_fun = function (str) { console.log(str); };
+  var args=[];
+
+  /**
+  * Open a module and append all exported properties to the current global object.
+  * (top-level scope)
+  */
+  global.open = function(name,as) {
+    var module = Require(name);
+    for (var p in module) {
+      global[p] = module[p];
+    };
+    if (as) global[as]=module;
+  }
+  
+  var io = {
+    /*
+    ************
+    ** Browser
+    ************
+    */
+    /*
+     ** FILE IO
+     * TODO WebStorage
+     */
+    close: function (fd) {
+        return;
+    },
+    exists: function (path) {
+        return false;
+    },
+    open: function (path, mode) {
+        var fd = Fs.openSync(path, mode);
+        return fd;
+    },
+
+    read: function (fd, len, foff) {
+        // TODO
+    },
+    read_file: function (path) {
+        return '';
+    },
+
+    read_line: function (fd) {
+        // TODO
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param boff
+     * @param len
+     * @param [foff]
+     * @returns {*}
+     */
+    read_buf: function (fd, buf, boff, len, foff) {
+        return -1;
+    },
+    sync: function (fd) {
+        return;
+    },
+    /**
+     *
+     * @param fd
+     * @param data
+     * @param [foff]
+     * @returns {*}
+     */
+    write: function (fd, data, foff) {
+        return -1;
+    },
+    /**
+     *
+     * @param fd
+     * @param buf
+     * @param bpos
+     * @param blen
+     * @param [foff]
+     * @returns {*}
+     */
+    write_buf: function (fd, buf, bpos, blen, foff) {
+        return -1;
+    },
+
+    /*
+     ** CONSOLE IO
+     */
+    debug: function (msg) {
+        stderr_fun('Debug: ' + msg);
+    },
+    err: function (msg) {
+        stderr_fun('Error: ' + msg);
+        throw Error(msg);
+    },
+    fail: function (msg) {
+        stderr_fun('Fatal Error: ' + msg);
+    },
+    inspect: function (obj) {
+        return;
+    },
+    stacktrace: function () {
+        var e = new Error('dummy');
+        var stack = e.stack.replace(/^[^\(]+?[\n$]/gm, '')
+            .replace(/^\s+at\s+/gm, '')
+            .replace(/^Object.<anonymous>\s*\(/gm, '{anonymous}()@')
+            .split('\n');
+        stderr_fun('Stack Trace');
+        stderr_fun('--------------------------------');
+        for(var i in stack) {
+            if (i>0) {
+                var line = stack[i];
+                if(line.indexOf('Module.',0)>=0) break;
+                stderr_fun(line);
+            }
+        }
+        stderr_fun('--------------------------------');
+    },
+    /**
+     *
+     * @param e
+     * @param where
+     */
+    printstack: function (e,where) {
+        if (where==undefined) stderr_fun(e);
+        else stderr_fun(where+': '+e);
+    },
+    /**
+     *
+     * @param {boolean|string} condmsg conditional message var log=X;  log((log lt. N)||(msg))
+     */
+    log: function (condmsg) {
+        if (condmsg != true) console.warn(condmsg);
+    },
+    out: function (msg) {
+        stdout_fun(msg)
+    },
+    warn: function (msg) {
+        stderr_fun('Warning: ' + msg);
+    },
+
+
+    set_stderr: function(fun) {
+        stderr_fun=fun;
+    },
+    set_stdout: function(fun) {
+        stdout_fun=fun;
+    },
+
+    stderr: function (msg) {
+        stderr_fun(msg);
+    },
+    stdout: function (msg) {
+        stdout_fun(msg);
+    },
+
+    /** Write a message with a time stamp written to the trace file.
+     *
+     * @param {boolean|string} condmsg conditional message var trace=Io.tracing;  trace(trace||(msg))
+     */
+    trace: function (condmsg) {
+        if (condmsg != true && tracefile != undefined) {
+            var date = new Date();
+            var time = date.getTime();
+            this.log('[' + time + '] ' + condmsg + '\n');
+        }
+    },
+    tracing: tracing,
+    /**
+     *
+     * @param {string} path
+     */
+    trace_open: function (path) {
+        return undefined;
+    },
+
+    exit: function (n) {
+        return;
+    },
+    getenv: function (name, def) {
+        return def;
+    },
+    workdir: function () {
+        return '';
+    },
+    /**
+     *  @return {string []}
+     */
+    getargs: function () {
+        return args;
+    },
+    set_args: function (argv) {
+        args=argv;
+    },
+    inspect: function (o) {return '?'}
+  };
+}  
+module.exports = io;
+};
+BundleModuleCode['os/getenv']=function (module,exports,global,process){
+var util = require("util");
+var url = require("url");
+
+var fallbacksDisabled = false;
+
+function _value(varName, fallback) {
+  var value = process.env[varName];
+  if (value === undefined) {
+    if (fallback === undefined) {
+      throw new Error('GetEnv.Nonexistent: ' + varName + ' does not exist ' +
+                      'and no fallback value provided.');
+    }
+    if (fallbacksDisabled) {
+      throw new Error('GetEnv.DisabledFallbacks: ' + varName + ' relying on fallback ' + 
+                      'when fallbacks have been disabled');
+    }
+    return '' + fallback;
+  }
+  return value;
+}
+
+var convert = {
+  string: function(value) {
+    return '' + value;
+  },
+  int: function(value) {
+    var isInt = value.match(/^-?\d+$/);
+    if (!isInt) {
+      throw new Error('GetEnv.NoInteger: ' + value + ' is not an integer.');
+    }
+
+    return +value;
+  },
+  float: function(value) {
+    var isInfinity = (+value === Infinity || +value === -Infinity);
+    if (isInfinity) {
+      throw new Error('GetEnv.Infinity: ' + value + ' is set to +/-Infinity.');
+    }
+
+    var isFloat = !(isNaN(value) || value === '');
+    if (!isFloat) {
+      throw new Error('GetEnv.NoFloat: ' + value + ' is not a number.');
+    }
+
+    return +value;
+  },
+  bool: function(value) {
+    var isBool = (value === 'true' || value === 'false');
+    if (!isBool) {
+      throw new Error('GetEnv.NoBoolean: ' + value + ' is not a boolean.');
+    }
+
+    return (value === 'true');
+  },
+  url: url.parse
+};
+
+function converter(type) {
+  return function(varName, fallback) {
+    if(typeof varName == 'string') { // default
+      var value = _value(varName, fallback);
+      return convert[type](value);
+    } else { // multibert!
+      return getenv.multi(varName);
+    }
+  };
+};
+
+var getenv = converter('string');
+
+Object.keys(convert).forEach(function(type) {
+  getenv[type] = converter(type);
+});
+
+getenv.array = function array(varName, type, fallback) {
+  type = type || 'string';
+  if (Object.keys(convert).indexOf(type) === -1) {
+    throw new Error('GetEnv.ArrayUndefinedType: Unknown array type ' + type);
+  }
+  var value = _value(varName, fallback);
+  return value.split(/\s*,\s*/).map(convert[type]);
+};
+
+getenv.multi = function multi(spec) {
+  var key, value;
+  var result = {};
+  for(var key in spec) {
+    var value = spec[key];
+    if(util.isArray(value)) { // default value & typecast
+      switch(value.length) {
+        case 1: // no default value
+        case 2: // no type casting
+          result[key] = getenv(value[0], value[1]); // dirty, when case 1: value[1] is undefined
+        break;
+        case 3: // with typecast
+          result[key] = getenv[value[2]](value[0], value[1]);
+          break;
+        default: // wtf?
+          throw('getenv.multi(): invalid spec');
+          break;
+      }
+    } else { // value or throw
+      result[key] = getenv(value);
+    }
+  }
+  return result;
+};
+
+getenv.disableFallbacks = function() {
+  fallbacksDisabled = true;
+};
+
+getenv.enableFallbacks = function() {
+  fallbacksDisabled = false;
+};
+
+module.exports = getenv;
+};
+BundleModuleCode['os/base64']=function (module,exports,global,process){
+var keyStr = "ABCDEFGHIJKLMNOP" +
+               "QRSTUVWXYZabcdef" +
+               "ghijklmnopqrstuv" +
+               "wxyz0123456789+/" +
+               "=";
+var Buffer=Require('buffer').Buffer;
+var Base64 = {
+  encode: function (input) {
+     input = escape(input);
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     do {
+        chr1 = input.charCodeAt(i++);
+        chr2 = input.charCodeAt(i++);
+        chr3 = input.charCodeAt(i++);
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < input.length);
+
+     return output;
+  },
+
+  encodeBuf: function (input) {
+     var output = "";
+     var NaN = output.charCodeAt(2);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var len = input.length;
+     do {
+        chr1 = input.readUInt8(i++);
+        chr2 = (i<len)?input.readUInt8(i++):NaN;
+        chr3 = (i<len)?input.readUInt8(i++):NaN;
+
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
+
+        if (isNaN(chr2)) {
+           enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+           enc4 = 64;
+        }
+
+        output = output +
+           keyStr.charAt(enc1) +
+           keyStr.charAt(enc2) +
+           keyStr.charAt(enc3) +
+           keyStr.charAt(enc4);
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+     } while (i < len);
+
+     return output;
+  },
+
+  decode: function (input) {
+     var output = "";
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        output = output + String.fromCharCode(chr1);
+
+        if (enc3 != 64) {
+           output = output + String.fromCharCode(chr2);
+        }
+        if (enc4 != 64) {
+           output = output + String.fromCharCode(chr3);
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return unescape(output);
+  },
+  decodeBuf: function (input) {
+     var len = input.length;
+     var buf = new Buffer(len);
+     var chr1, chr2, chr3 = "";
+     var enc1, enc2, enc3, enc4 = "";
+     var i = 0;
+     var buflen = 0;
+     input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+     buf.fill(0);
+     do {
+        enc1 = keyStr.indexOf(input.charAt(i++));
+        enc2 = keyStr.indexOf(input.charAt(i++));
+        enc3 = keyStr.indexOf(input.charAt(i++));
+        enc4 = keyStr.indexOf(input.charAt(i++));
+
+        chr1 = (enc1 << 2) | (enc2 >> 4);
+        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+        chr3 = ((enc3 & 3) << 6) | enc4;
+
+        buf.writeUInt8(chr1,buflen);
+        buflen++;
+        if (enc3 != 64) {
+          buf.writeUInt8(chr2,buflen);
+          buflen++;
+        }
+        if (enc4 != 64) {
+            buf.writeUInt8(chr3,buflen);
+            buflen++;
+        }
+
+        chr1 = chr2 = chr3 = "";
+        enc1 = enc2 = enc3 = enc4 = "";
+
+     } while (i < input.length);
+
+     return buf.slice(0,buflen);
+  }
+
+};
+
+
+module.exports = Base64;
+};
+BundleModuleCode['com/path']=function (module,exports,global,process){
+var process = process || {};
+(function () {
+  "use strict";
+
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+var isWindows = process.platform === 'win32';
+var util = Require('util');
+
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+
+if (isWindows) {
+  // Regex to split a windows path into three parts: [*, device, slash,
+  // tail] windows-only
+  var splitDeviceRe =
+      /^([a-zA-Z]:|[\\\/]{2}[^\\\/]+[\\\/]+[^\\\/]+)?([\\\/])?([\s\S]*?)$/;
+
+  // Regex to split the tail part of the above into [*, dir, basename, ext]
+  var splitTailRe =
+      /^([\s\S]*?)((?:\.{1,2}|[^\\\/]+?|)(\.[^.\/\\]*|))(?:[\\\/]*)$/;
+
+  // Function to split a filename into [root, dir, basename, ext]
+  // windows version
+  var splitPath = function(filename) {
+    // Separate device+slash from tail
+    var result = splitDeviceRe.exec(filename),
+        device = (result[1] || '') + (result[2] || ''),
+        tail = result[3] || '';
+    // Split the tail into dir, basename and extension
+    var result2 = splitTailRe.exec(tail),
+        dir = result2[1],
+        basename = result2[2],
+        ext = result2[3];
+    return [device, dir, basename, ext];
+  };
+
+  var normalizeUNCRoot = function(device) {
+    return '\\\\' + device.replace(/^[\\\/]+/, '').replace(/[\\\/]+/g, '\\');
+  };
+
+  // path.resolve([from ...], to)
+  // windows version
+  exports.resolve = function() {
+    var resolvedDevice = '',
+        resolvedTail = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1; i--) {
+      var path;
+      if (i >= 0) {
+        path = arguments[i];
+      } else if (!resolvedDevice) {
+        path = process.cwd();
+      } else {
+        // Windows has the concept of drive-specific current working
+        // directories. If we've resolved a drive letter but not yet an
+        // absolute path, get cwd for that drive. We're sure the device is not
+        // an unc path at this points, because unc paths are always absolute.
+        path = process.env['=' + resolvedDevice];
+        // Verify that a drive-local cwd was found and that it actually points
+        // to our drive. If not, default to the drive's root.
+        if (!path || path.substr(0, 3).toLowerCase() !==
+            resolvedDevice.toLowerCase() + '\\') {
+          path = resolvedDevice + '\\';
+        }
+      }
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      var result = splitDeviceRe.exec(path),
+          device = result[1] || '',
+          isUnc = device && device.charAt(1) !== ':',
+          isAbsolute = exports.isAbsolute(path),
+          tail = result[3];
+
+      if (device &&
+          resolvedDevice &&
+          device.toLowerCase() !== resolvedDevice.toLowerCase()) {
+        // This path points to another device so it is not applicable
+        continue;
+      }
+
+      if (!resolvedDevice) {
+        resolvedDevice = device;
+      }
+      if (!resolvedAbsolute) {
+        resolvedTail = tail + '\\' + resolvedTail;
+        resolvedAbsolute = isAbsolute;
+      }
+
+      if (resolvedDevice && resolvedAbsolute) {
+        break;
+      }
+    }
+
+    // Convert slashes to backslashes when `resolvedDevice` points to an UNC
+    // root. Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      resolvedDevice = normalizeUNCRoot(resolvedDevice);
+    }
+
+    // At this point the path should be resolved to a full absolute path,
+    // but handle relative paths to be safe (might happen when process.cwd()
+    // fails)
+
+    // Normalize the tail path
+
+    function f(p) {
+      return !!p;
+    }
+
+    resolvedTail = normalizeArray(resolvedTail.split(/[\\\/]+/).filter(f),
+                                  !resolvedAbsolute).join('\\');
+
+    return (resolvedDevice + (resolvedAbsolute ? '\\' : '') + resolvedTail) ||
+           '.';
+  };
+
+  // windows version
+  exports.normalize = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = device && device.charAt(1) !== ':',
+        isAbsolute = exports.isAbsolute(path),
+        tail = result[3],
+        trailingSlash = /[\\\/]$/.test(tail);
+
+    // If device is a drive letter, we'll normalize to lower case.
+    if (device && device.charAt(1) === ':') {
+      device = device[0].toLowerCase() + device.substr(1);
+    }
+
+    // Normalize the tail path
+    tail = normalizeArray(tail.split(/[\\\/]+/).filter(function(p) {
+      return !!p;
+    }), !isAbsolute).join('\\');
+
+    if (!tail && !isAbsolute) {
+      tail = '.';
+    }
+    if (tail && trailingSlash) {
+      tail += '\\';
+    }
+
+    // Convert slashes to backslashes when `device` points to an UNC root.
+    // Also squash multiple slashes into a single one where appropriate.
+    if (isUnc) {
+      device = normalizeUNCRoot(device);
+    }
+
+    return device + (isAbsolute ? '\\' : '') + tail;
+  };
+
+  // windows version
+  exports.isAbsolute = function(path) {
+    var result = splitDeviceRe.exec(path),
+        device = result[1] || '',
+        isUnc = !!device && device.charAt(1) !== ':';
+    // UNC paths are always absolute
+    return !!result[2] || isUnc;
+  };
+
+  // windows version
+  exports.join = function() {
+    function f(p) {
+      if (!util.isString(p)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      return p;
+    }
+
+    var paths = Array.prototype.filter.call(arguments, f);
+    var joined = paths.join('\\');
+
+    // Make sure that the joined path doesn't start with two slashes, because
+    // normalize() will mistake it for an UNC path then.
+    //
+    // This step is skipped when it is very clear that the user actually
+    // intended to point at an UNC path. This is assumed when the first
+    // non-empty string arguments starts with exactly two slashes followed by
+    // at least one more non-slash character.
+    //
+    // Note that for normalize() to treat a path as an UNC path it needs to
+    // have at least 2 components, so we don't filter for that here.
+    // This means that the user can use join to construct UNC paths from
+    // a server name and a share name; for example:
+    //   path.join('//server', 'share') -> '\\\\server\\share\')
+    if (!/^[\\\/]{2}[^\\\/]/.test(paths[0])) {
+      joined = joined.replace(/^[\\\/]{2,}/, '\\');
+    }
+
+    return exports.normalize(joined);
+  };
+
+  // path.relative(from, to)
+  // it will solve the relative path from 'from' to 'to', for instance:
+  // from = 'C:\\orandea\\test\\aaa'
+  // to = 'C:\\orandea\\impl\\bbb'
+  // The output of the function should be: '..\\..\\impl\\bbb'
+  // windows version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from);
+    to = exports.resolve(to);
+
+    // windows is not case sensitive
+    var lowerFrom = from.toLowerCase();
+    var lowerTo = to.toLowerCase();
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var toParts = trim(to.split('\\'));
+
+    var lowerFromParts = trim(lowerFrom.split('\\'));
+    var lowerToParts = trim(lowerTo.split('\\'));
+
+    var length = Math.min(lowerFromParts.length, lowerToParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (lowerFromParts[i] !== lowerToParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    if (samePartsLength == 0) {
+      return to;
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < lowerFromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('\\');
+  };
+
+  exports.sep = '\\';
+  exports.delimiter = ';';
+
+} else /* posix */ {
+
+  // Split a filename into [root, dir, basename, ext], unix version
+  // 'root' is just a slash, or nothing.
+  var splitPathRe =
+      /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+  var splitPath = function(filename) {
+    return splitPathRe.exec(filename).slice(1);
+  };
+
+  // path.resolve([from ...], to)
+  // posix version
+  exports.resolve = function() {
+    var resolvedPath = '',
+        resolvedAbsolute = false;
+
+    for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+      var path = (i >= 0) ? arguments[i] : process.cwd();
+
+      // Skip empty and invalid entries
+      if (!util.isString(path)) {
+        throw new TypeError('Arguments to path.resolve must be strings');
+      } else if (!path) {
+        continue;
+      }
+
+      resolvedPath = path + '/' + resolvedPath;
+      resolvedAbsolute = path.charAt(0) === '/';
+    }
+
+    // At this point the path should be resolved to a full absolute path, but
+    // handle relative paths to be safe (might happen when process.cwd() fails)
+
+    // Normalize the path
+    resolvedPath = normalizeArray(resolvedPath.split('/').filter(function(p) {
+      return !!p;
+    }), !resolvedAbsolute).join('/');
+
+    return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+  };
+
+  // path.normalize(path)
+  // posix version
+  exports.normalize = function(path) {
+    var isAbsolute = exports.isAbsolute(path),
+        trailingSlash = path[path.length - 1] === '/',
+        segments = path.split('/'),
+        nonEmptySegments = [];
+
+    // Normalize the path
+    for (var i = 0; i < segments.length; i++) {
+      if (segments[i]) {
+        nonEmptySegments.push(segments[i]);
+      }
+    }
+    path = normalizeArray(nonEmptySegments, !isAbsolute).join('/');
+
+    if (!path && !isAbsolute) {
+      path = '.';
+    }
+    if (path && trailingSlash) {
+      path += '/';
+    }
+
+    return (isAbsolute ? '/' : '') + path;
+  };
+
+  // posix version
+  exports.isAbsolute = function(path) {
+    return path.charAt(0) === '/';
+  };
+
+  // posix version
+  exports.join = function() {
+    var path = '';
+    for (var i = 0; i < arguments.length; i++) {
+      var segment = arguments[i];
+      if (!util.isString(segment)) {
+        throw new TypeError('Arguments to path.join must be strings');
+      }
+      if (segment) {
+        if (!path) {
+          path += segment;
+        } else {
+          path += '/' + segment;
+        }
+      }
+    }
+    return exports.normalize(path);
+  };
+
+
+  // path.relative(from, to)
+  // posix version
+  exports.relative = function(from, to) {
+    from = exports.resolve(from).substr(1);
+    to = exports.resolve(to).substr(1);
+
+    function trim(arr) {
+      var start = 0;
+      for (; start < arr.length; start++) {
+        if (arr[start] !== '') break;
+      }
+
+      var end = arr.length - 1;
+      for (; end >= 0; end--) {
+        if (arr[end] !== '') break;
+      }
+
+      if (start > end) return [];
+      return arr.slice(start, end + 1);
+    }
+
+    var fromParts = trim(from.split('/'));
+    var toParts = trim(to.split('/'));
+
+    var length = Math.min(fromParts.length, toParts.length);
+    var samePartsLength = length;
+    for (var i = 0; i < length; i++) {
+      if (fromParts[i] !== toParts[i]) {
+        samePartsLength = i;
+        break;
+      }
+    }
+
+    var outputParts = [];
+    for (var i = samePartsLength; i < fromParts.length; i++) {
+      outputParts.push('..');
+    }
+
+    outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+    return outputParts.join('/');
+  };
+
+  exports.sep = '/';
+  exports.delimiter = ':';
+}
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+
+exports.exists = util.deprecate(function(path, callback) {
+  require('fs').exists(path, callback);
+}, 'path.exists is now called `fs.exists`.');
+
+
+exports.existsSync = util.deprecate(function(path) {
+  return require('fs').existsSync(path);
+}, 'path.existsSync is now called `fs.existsSync`.');
+
+
+if (isWindows) {
+  exports._makeLong = function(path) {
+    // Note: this will *probably* throw somewhere.
+    if (!util.isString(path))
+      return path;
+
+    if (!path) {
+      return '';
+    }
+
+    var resolvedPath = exports.resolve(path);
+
+    if (/^[a-zA-Z]\:\\/.test(resolvedPath)) {
+      // path is local filesystem path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\' + resolvedPath;
+    } else if (/^\\\\[^?.]/.test(resolvedPath)) {
+      // path is network UNC path, which needs to be converted
+      // to long UNC path.
+      return '\\\\?\\UNC\\' + resolvedPath.substring(2);
+    }
+
+    return path;
+  };
+} else {
+  exports._makeLong = function(path) {
+    return path;
+  };
+}
+}());
+};
+BundleModuleCode['com/sprintf']=function (module,exports,global,process){
+(function(window) {
+    var re = {
+        not_string: /[^s]/,
+        number: /[diefg]/,
+        json: /[j]/,
+        not_json: /[^j]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-gijosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function(parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && re.not_json.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                    break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                    break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                    break
+                    case "j":
+                        arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                    break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                    break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                    break
+                    case "g":
+                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
+                    break
+                    case "o":
+                        arg = arg.toString(8)
+                    break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                    break
+                    case "u":
+                        arg = arg >>> 0
+                    break
+                    case "x":
+                        arg = arg.toString(16)
+                    break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                    break
+                }
+                if (re.json.test(match[8])) {
+                    output[output.length] = arg
+                }
+                else {
+                    if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                        sign = is_positive ? "+" : "-"
+                        arg = arg.toString().replace(re.sign, "")
+                    }
+                    else {
+                        sign = ""
+                    }
+                    pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                    pad_length = match[6] - (sign + arg).length
+                    pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                    output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+                }
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function(fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            try {_fmt = _fmt.substring(match[0].length)} catch (e) {throw new SyntaxError("[sprintf] unexpected fromat")}
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function(fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+     */
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function() {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+})(typeof window === "undefined" ? this : window);
+};
+BundleModuleCode['plugins/pcsp/pcsp.js']=function (module,exports,global,process){
+/*
+** Parallel Communicating Sequential Processes (CSP)
+** with nodejs workers and IPC
+*/
+var threads   = Require('pcsp/threads'), 
+    sm        = Require('pcsp/sm').sm,
+    semaphore = Require('pcsp/sm').semaphore, // native semaphore lock
+    bufferObj = Require('pcsp/bobj'),
+    Options   = { verbose : 0, version : "0.10.2"};
+
+
+Threads = threads;
+SM=sm;
+
+
+SizeOf=bufferObj.SizeOf,
+TypeOf=bufferObj.TypeOf;
+Struct=bufferObj.Struct;
+ArrayType=bufferObj.ArrayType;
+
+var fs = require('fs');
+
+function requireStr(path, callback) {
+    try {
+        var filename = require.resolve(path);
+        fs.readFile(filename, 'utf8', callback);
+    } catch (e) {
+        callback(e);
+    }
+}
+
+var ready=[],events=[];
+
+Co = async function (procs,shared,async) {
+  var id = 'co:'+process.pid+':'+Co.coID++;
+  var sema,wakeup;
+  shared=shared||{}
+  function errorLine(stack) {
+    if (!stack) return '?';
+    var tokens,lines = stack.split('\n');
+    if (lines[0]) tokens=lines[1].match(/:([0-9]+):[0-9]+\)$/);
+    if (tokens) return 'at relative line '+tokens[1];
+    else return '?';  
+  }
+  Object.assign(shared,{
+    Barrier   : Co.Barrier,
+    Channel   : Co.Channel,
+    error       : function (where,which,what) { 
+      console.log(where,which,what.toString(),errorLine(what.stack)) },
+    print       : console.log,
+    Semaphore   : Co.Semaphore,
+    sleep       : Co.sleep,
+    yield       : Co.yield,
+  });
+  if (!async) shared._group=Co.Barrier(procs.length);
+  function compile(f) { 
+      var foo;
+    try { 
+      with (shared) {
+        if (async) eval('foo=function (id) { try ('+f.toString()+')(id); } catch (e) { error("Co","#"+id,e) };');
+        else eval('foo=async function (id) { try { await ('+f.toString()+')(id); } catch (e) { error("Co","#"+id,e) }; return _group.join() }');
+        return foo;
+      }
+    } catch (e) { console.log('Co error:'+e.toString()); }
+  }
+  var aprocs = procs.map(compile);
+  // if (!async)
+  for(var i=0;i<aprocs.length;i++) try {
+    aprocs[i](i);
+  } catch (e) { 'Co: caught calling error of process '+i+': '+e.toString() }
+  if (!async) return shared._group.join();
+}
+Co.barrier = {
+  barrierID:0,
+  barriers:[],
+  create : function (init) {
+    var id = Co.barrier.barrierID++;
+    var barrier = {
+      waiters : [],
+      level : init,
+      join : async function () {
+        var self=this;
+        if (this.level>0) {
+          this.level--;
+          return new Promise (function (cb) {
+            self.waiters.push(cb);
+          });
+        } else {
+          for (var i in this.waiters) this.waiters[i](); 
+        }
+      }
+    }
+    return barrier;
+  }
+}
+Co.Barrier = Co.barrier.create;
+Co.channel = {
+  channelID:0,
+  channels:[],
+  create : function (depth) {
+    var id = Co.channel.channelID++;
+    var chan = {
+      waiters : [],
+      queue : [],
+      send: function (data) {
+        if (this.queue.length==0 && this.waiters.length) {
+          var wakeup = this.waiters.shift();
+          wakeup(data);
+        } else this.queue.push(data);
+      },
+      receive : async function () {
+        var self=this,data;
+        if (this.queue.length) return this.queue.shift();
+        // console.log('WAIT M');
+        return new Promise (function (cb) {
+          self.waiters.push(function (data) {
+            cb(data);
+          });
+        });
+      }
+    }
+    return chan;
+  }
+}
+Co.Channel = Co.channel.create;
+Co.semaphore = {
+  semaID:0,
+  semas:[],
+  create : function (init) {
+    var id = Co.semaphore.semaID++;
+    var sema = {
+      waiters : [],
+      level : init,
+      release: function () {
+        if (this.level==0 && this.waiters.length) {
+          var wakeup = this.waiters.shift();
+          wakeup(); 
+        } else this.level++;
+      },
+      acquire : async function () {
+        var self=this;
+        if (this.level>0) return this.level--;
+        return new Promise (function (cb) {
+          self.waiters.push(cb);
+        });
+      }
+    }
+    return sema;
+  }
+}
+Co.coID=0;
+Co.Semaphore = Co.semaphore.create;
+Co.schedule = async function schedule(promise) {
+  var next = ready.pop();
+  if (next) next();
+  return promise
+}
+Co.sleep = async function sleep(timeout) {
+  var p = new Promise(function (resolve) {
+    setTimeout(resolve,timeout);
+  })
+  return p;
+}
+Co.yield = async function yield() {
+  var p = new Promise(function (resolve) {
+    ready.push(resolve);
+  })
+  return Co.schedule(p);
+}
+
+/*
+Shared objects only via SM and buffer objects?
+Each process has a local copy handler of a shared IPC object
+Sema, Barrier : OS semaphore + Counter in SM
+|{ level'int', waiters:'int [N]', top:'int' }|
+Each process maintins reference to current object blocking the process (in waiters queue)
+Event wake up sleeping process and relaeses the process by calling the promise resolve callback  
+
+process.kill(pid,SIGUSR*)
+process.on('SIGUSR*',function (sender?) {
+  
+})
+
+
+*/
+// Public API
+Par = async function (procs,shared,async) {
+  var processes=procs.length,
+      id = 'par:'+process.pid+':'+Par.parID++;
+  // Each process is started in it's own worker process (child process)
+  // 1. Create a shared segment SM based on shared environment
+  shared=shared||{};
+  var size=0;
+  for(var p in shared) {
+    // all elements must be constrcutors!
+    size += shared[p].size({processes:procs.length});
+  }
+
+  // at least one 4k pgae
+  size = Math.floor((size + 4095)/4096)*4096;
+  var segment = sm('/'+id,size);
+  if (Options.verbose) console.log('SM /'+id,size)
+  segment.create();
+  
+  // 2. Create  shared objects 
+  var sharedobjects={},address;
+  for(var p in shared) {
+    if (shared[p].class=='Object')
+      sharedobjects[p]=segment.object(shared[p],{processes:processes});
+    else if (shared[p].class=='Array');
+    else if (shared[p].class=='Struct') sharedobjects[p]=segment.object(shared[p]);
+    
+    // console.log(sharedobjects[p] && sharedobjects[p].__address)
+  }
+
+  // 3. Create threads  
+  var vms = [];
+  for(var i in procs) {
+    var t = Threads.VM.create({bootstrap:false});
+    vms.push(t);
+  }
+  // 4. wait for VM s 
+  for (var i in vms) {
+    await vms[i].ready();
+    // 4.2 load this library
+    vms[i].run('require("'+__library+'");');
+    // 4.3.  map shared segment
+    vms[i].run(function (id) { segment=SM("/"+id,1024); segment.map() },id);
+  } 
+  if (Options.verbose) console.log('All VMs ready.');
+  
+  // 5. Send shared objects to proceeses environment (msg.data)
+  //    or by executing the construtor functions on worker
+
+  for (var i in vms) {
+    for(var p in shared) {
+      var o=sharedobjects[p];
+      // console.log(o.__class,o.__subclass)
+      switch (o.__class) {
+        case 'Struct':
+          vms[i].run(p+'=Struct.deserialize(segment.buffer,'+JSON.stringify(Struct.serialize(o))+')');
+          break;
+        case 'Object':
+          switch (o.__subclass) {
+            case 'Semaphore':
+            case 'Channel':
+               vms[i].run(p+'=Par.'+o.__subclass+'.deserialize(segment.buffer,'+JSON.stringify(Par[o.__subclass].serialize(o))+')');
+               break;     
+          }
+          break;
+      }
+    }
+  } 
+
+  // 6. run the process code
+  for(var i in procs) {
+    vms[i].run(procs[i],i,true);
+  }
+  if (!async) {
+    for(var i in procs) {
+      await vms[i].join();
+    }
+    for(var i in procs) {
+      vms[i].kill(true);
+    }
+  } else {
+    setTimeout(async function () {
+     for(var i in procs) {
+        await vms[i].join();
+      }
+      for(var i in procs) {
+        vms[i].kill(true);
+      }    
+    });
+  }
+  
+}
+Par.parID=0;
+
+// Private API: Semaphore type constructor
+Par.semaphore = {
+  semaID:0,
+  struct : Struct({
+    id    : 'char [16]',
+    level : 'int',
+    waiters : 'int [processes]',
+    head   : 'int',
+    tail   : 'int',
+  }),
+  create : function (buffer,address,parameter) {
+    var state;
+    if (Options.verbose) console.log('Par.semaphore.create',address,parameter);
+    if (parameter.init!=undefined) {
+      // initial
+      state = Par.semaphore.struct(buffer,address,{processes:parameter.processes}); // internal shared state
+      id = process.pid+':'+(Par.semaphore.semaID++);
+      state.id=id;
+      state.level=parameter.init;
+      state.head=0;
+      state.tail=0;
+    } else {
+      // copy
+      state= Par.semaphore.struct(buffer,address,{processes:parameter.processes});
+      id = state.id;
+    }
+    var sema = {
+      __name    : 'semaphore',
+      __address : address,
+      __desc    : Par.semaphore.struct,
+      __class   : 'Object',
+      __subclass : 'Semaphore',
+      __parameter : parameter,
+      id    : id,
+      lock  : semaphore('/semalock'+id,parameter.init!=undefined?1:undefined),  // low-level lock
+      state : state,
+      // operations
+      release: function () {
+        this.lock.acquire()
+        if (this.state.level==0 && this.state.head!=this.state.tail) {
+          var wakeup = this.state.waiters[this.state.tail];
+          this.state.tail=(this.state.tail+1)%this.__parameter.processes;
+          if (Options.verbose) console.log('Semaphore.release: wakeup',wakeup);
+          process.kill(wakeup,'SIGUSR2');
+        } else this.state.level++;
+        this.lock.release()
+      },
+      acquire : async function () {
+        var self=this;
+        this.lock.acquire();
+        if (this.state.level>0) {
+          this.state.level--;
+          return this.lock.release();
+        }
+        return new Promise (function (cb) {
+          process.resume=cb;
+          self.state.waiters[self.state.head]=process.pid;
+          self.state.head=(self.state.head+1)%self.__parameter.processes;
+          self.lock.release()
+        });
+      }
+    }
+    return sema;
+  }
+}
+Par.semaphore.create.size = Par.semaphore.struct.size;
+Par.semaphore.create.name = 'semaphore';
+Par.semaphore.create.parameter = ['buffer','address','processes'];
+// Public API
+Par.Semaphore = function (level) {
+  var constructor = function (buffer,address,parameter) { 
+    return Par.semaphore.create(buffer,address,{processes:parameter&&parameter.processes,init:level}) 
+  };
+  constructor.class='Object';
+  constructor.subclass='Semaphore';
+  Object.assign(constructor,Par.semaphore.create);
+  return constructor;
+};
+Par.Semaphore.deserialize = function (buffer,share) {
+  delete share.parameter.init;
+  return Par.semaphore.create(buffer,share.address,share.parameter)
+}
+Par.Semaphore.serialize = function (bo) {
+  return { address: bo.__address, size:bo.__size, struct:bo.__desc, class:bo.__class, subclass:bo.__subclass, 
+           name: bo.__name, parameter: bo.__parameter } 
+}
+
+
+// Private API: Semaphore type constructor TODO
+Par.channel = {
+  channelID:0,
+  struct : Struct({
+    id    : 'char [16]',
+    queue : 'type [depth]', // dynamic type
+    dhead : 'int',
+    dtail : 'int',
+    depth : 'int',
+    waiters : 'int [processes]',
+    whead   : 'int',
+    wtail   : 'int',
+  }),
+  create : function (buffer,address,parameter) {
+    var state;
+    if (Options.verbose) console.log('Par.channel.create',address,parameter);
+    if (parameter.init!=undefined) {
+      // initial
+      state = Par.channel.struct(buffer,address,parameter); // internal shared state
+      id = process.pid+':'+(Par.channel.channelID++);
+      state.id=id;
+      state.depth=parameter.depth;
+      state.dhead=0;
+      state.dtail=0;
+      state.whead=0;
+      state.wtail=0;
+    } else {
+      // copy
+      state= Par.channel.struct(buffer,address,parameter);
+      id = state.id;
+    }
+    var channel = {
+      __name    : 'channel',
+      __address : address,
+      __desc    : Par.channel.struct,
+      __class   : 'Object',
+      __subclass : 'Channel',
+      __parameter : parameter,
+      id    : id,
+      lock  : semaphore('/chanlock'+id,parameter.init!=undefined?1:undefined),  // low-level lock
+      state : state,
+      // operations
+      write: function (data) {
+        this.lock.acquire()
+        // always store data in queue; reader will re-enter read op
+        this.state.queue[this.state.dhead]=data;
+        this.state.dhead=(this.state.dhead+1)%this.state.depth;
+        if (this.state.whead!=this.state.wtail) {
+          var wakeup = this.state.waiters[this.state.wtail];
+          this.state.wtail=(this.state.wtail+1)%this.__parameter.processes;
+          if (Options.verbose) console.log('Channel.write: wakeup',wakeup);
+          process.kill(wakeup,'SIGUSR2');
+        }
+        this.lock.release()
+      },
+      read : async function () {
+        var self=this;
+        async function loop() { 
+          self.lock.acquire();
+          if (self.state.dhead!=self.state.dtail) {
+            var data = self.state.queue[self.state.dtail];
+            self.state.dtail=(self.state.dtail+1)%self.state.depth;          
+            self.lock.release();
+            return data;
+          }
+          return new Promise (function (cb) {
+            process.resume=cb;  // Re-enter read loop to read data after wake-up
+            self.state.waiters[self.state.whead]=process.pid;
+            self.state.whead=(self.state.whead+1)%self.__parameter.processes;
+            self.lock.release()
+          });
+         }
+         var data;
+         while (data==undefined) data = await loop(); 
+         return data;
+      }
+    }
+    return channel;
+  }
+}
+Par.channel.create.size = Par.channel.struct.size;
+Par.channel.create.name = 'channel';
+Par.channel.create.parameter = ['buffer','address','processes'];
+// Public API
+Par.Channel = function (depth,type) {
+  if (depth==undefined || type == undefined) throw "Par.Channel: Insufficient arguments";
+  var constructor = function (buffer,address,parameter) { 
+    return Par.channel.create(buffer,address,{processes:(parameter&&parameter.processes)||8,depth:depth,type:type,init:true}) 
+  };
+  constructor.class='Object';
+  constructor.subclass='Channel';
+  Object.assign(constructor,Par.channel.create);
+  constructor.size=function (_p) {
+    return Par.channel.create.size({processes:_p.processes,depth:depth,type:type})
+  }
+  return constructor;
+};
+Par.Channel.deserialize = function (buffer,share) {
+  delete share.parameter.init;
+  return Par.channel.create(buffer,share.address,share.parameter)
+}
+Par.Channel.serialize = function (bo) {
+  return { address: bo.__address, size:bo.__size, struct:bo.__desc, class:bo.__class, subclass:bo.__subclass, 
+           name: bo.__name, parameter: bo.__parameter } 
+}
+
+Par.barrier = {
+  barrierID:0,
+  struct : Struct({
+    id    : 'char [16]',
+    joined : 'int',
+    level  : 'int',
+    waiters : 'int [processes]',
+    head   : 'int',
+    tail   : 'int',
+  }),
+  create : function (buffer,address,parameter) {
+    var state;
+    if (Options.verbose) console.log('Par.barrier.create',address,parameter);
+    if (parameter.init!=undefined) {
+      // initial
+      state = Par.barrier.struct(buffer,address,{processes:parameter.processes}); // internal shared state
+      id = process.pid+':'+(Par.barrier.barrierID++);
+      state.id=id;
+      state.level=parameter.init;
+      state.joined=0;
+      state.head=0;
+      state.tail=0;
+    } else {
+      // copy
+      state= Par.barrier.struct(buffer,address,{processes:parameter.processes});
+      id = state.id;
+    }
+    var barrier = {
+      __name    : 'barrier',
+      __address : address,
+      __desc    : Par.barrier.struct,
+      __class   : 'Object',
+      __subclass : 'Barrier',
+      __parameter : parameter,
+      id    : id,
+      lock  : semaphore('/barrierlock'+id,parameter.init!=undefined?1:undefined),  // low-level lock
+      state : state,
+      // operations
+      join : async function () {
+        var self=this;
+        this.lock.acquire();
+        this.state.joined++;
+        if (this.state.joined==this.state.level-1) {
+          while (this.state.head!=this.state.tail) {
+            var wakeup = this.state.waiters[this.state.tail];
+            this.state.tail=(this.state.tail+1)%this.__parameter.processes;
+            if (Options.verbose) console.log('Barrier.release: wakeup',wakeup);
+            process.kill(wakeup,'SIGUSR2');          
+          }
+          return this.lock.release();
+        }
+        return new Promise (function (cb) {
+          process.resume=cb;
+          self.state.waiters[self.state.head]=process.pid;
+          self.state.head=(self.state.head+1)%self.__parameter.processes;
+          self.lock.release()
+        });
+      }
+    }
+    return barrier;
+  }
+}
+Par.barrier.create.size = Par.barrier.struct.size;
+Par.barrier.create.name = 'barrier';
+Par.barrier.create.parameter = ['buffer','address','processes'];
+// Public API
+Par.Barrier = function (level) {
+  var constructor = function (buffer,address,parameter) { 
+    return Par.semaphore.create(buffer,address,{processes:(parameter&&parameter.processes)||8,init:level}) 
+  };
+  constructor.class='Object';
+  constructor.subclass='Barrier';
+  Object.assign(constructor,Par.semaphore.create);
+  return constructor;
+};
+Par.Barrier.deserialize = function (buffer,share) {
+  delete share.parameter.init;
+  return Par.barrier.create(buffer,share.address,share.parameter)
+}
+Par.Barrier.serialize = function (bo) {
+  return { address: bo.__address, size:bo.__size, struct:bo.__desc, class:bo.__class, subclass:bo.__subclass, 
+           name: bo.__name, parameter: bo.__parameter } 
+}
+
+
+
+Par.mutex = {
+  mutexID:0,
+  struct : Struct({
+    id    : 'char [16]',
+    locked : 'int',
+    waiters : 'int [processes]',
+    head   : 'int',
+    tail   : 'int',
+  }),
+  create : function (buffer,address,parameter) {
+    var state;
+    if (Options.verbose) console.log('Par.mutex.create',address,parameter);
+    if (parameter.init!=undefined) {
+      // initial
+      state = Par.mutex.struct(buffer,address,{processes:parameter.processes}); // internal shared state
+      id = process.pid+':'+(Par.mutex.barrierID++);
+      state.id=id;
+      state.locked=0;
+      state.head=0;
+      state.tail=0;
+    } else {
+      // copy
+      state= Par.mutex.struct(buffer,address,{processes:parameter.processes});
+      id = state.id;
+    }
+    var mutex = {
+      __name    : 'mutex',
+      __address : address,
+      __desc    : Par.mutex.struct,
+      __class   : 'Object',
+      __subclass : 'Mutex',
+      __parameter : parameter,
+      id    : id,
+      lock  : semaphore('/mutexlock'+id,parameter.init!=undefined?1:undefined),  // low-level lock
+      state : state,
+      // operations
+      release: function () {
+        this.lock.acquire()
+        if (this.state.locked==1 && this.state.head!=this.state.tail) {
+          var wakeup = this.state.waiters[this.state.tail];
+          this.state.tail=(this.state.tail+1)%this.__parameter.processes;
+          if (Options.verbose) console.log('Mutex.release: wakeup',wakeup);
+          process.kill(wakeup,'SIGUSR2');
+        } else this.state.locked=0;
+        this.lock.release()
+      },
+      acquire : async function () {
+        var self=this;
+        this.lock.acquire();
+        if (this.state.locked=0) {
+          this.state.locked=1;
+          return this.lock.release();
+        }
+        return new Promise (function (cb) {
+          process.resume=cb;
+          self.state.waiters[self.state.head]=process.pid;
+          self.state.head=(self.state.head+1)%self.__parameter.processes;
+          self.lock.release()
+        });
+      }
+    }
+    return mutex;
+  }
+}
+Par.mutex.create.size = Par.mutex.struct.size;
+Par.mutex.create.name = 'barrier';
+Par.mutex.create.parameter = ['buffer','address','processes'];
+// Public API
+Par.Mutex = function () {
+  var constructor = function (buffer,address,parameter) { 
+    return Par.mutex.create(buffer,address,{processes:parameter.processes,init:true}) 
+  };
+  constructor.class='Object';
+  constructor.subclass='Mutex';
+  Object.assign(constructor,Par.mutex.create);
+  return constructor;
+};
+Par.Mutex.deserialize = function (buffer,share) {
+  delete share.parameter.init;
+  return Par.mutex.create(buffer,share.address,share.parameter)
+}
+Par.Mutex.serialize = function (bo) {
+  return { address: bo.__address, size:bo.__size, struct:bo.__desc, class:bo.__class, subclass:bo.__subclass, 
+           name: bo.__name, parameter: bo.__parameter } 
+}
+
+
+Fork = function (procs,shared) {
+  // Each process is started in it's own worker process (child process)
+  return Par(procs,shared,true)
+}
+
+module.exports = {
+  Co : Co,
+  Fork : Fork,
+  Par:Par,
+  Threads : threads,
+  SM   : sm,
+  // main library module path
+  path : __library,
+  options : Options,
+  
+}
+};
+BundleModuleCode['pcsp/threads']=function (module,exports,global,process){
+var fork    = require('child_process').fork,
+    spawn   = require('child_process').spawn;
+
+var program = process.argv[0],
+    shell   = process.argv[1],
+    arguments = process.argv.slice(1);
+
+var Options = { 
+  verbose : 0,
+  version  : '1.2.1'
+};
+
+// only master-worker channel communication
+var Channel = {
+  channelID:0,
+  channels:[],
+  create : function (depth) {
+    var id = Channel.channelID++;
+    var chan = {
+      waiters : [],
+      queue : [],
+      send: function (data) {
+        if (this.queue.length==0 && this.waiters.length) {
+          var wakeup = this.waiters.shift();
+          wakeup(data);
+        } else this.queue.push(data);
+      },
+      receive : async function () {
+        var self=this,data;
+        if (this.queue.length) return this.queue.shift();
+        // console.log('WAIT M');
+        return new Promise (function (cb) {
+          self.waiters.push(function (data) {
+            cb(data);
+          });
+        });
+      }
+    }
+    return chan;
+  }
+}
+// only master-worker channel communication
+var Sema = {
+  semaID:0,
+  semas:[],
+  create : function (init) {
+    var id = Sema.semaID++;
+    var sema = {
+      id : id,
+      waiters : [],
+      level : init,
+      release: function () {
+        if (this.level==0 && this.waiters.length) {
+          var wakeup = this.waiters.shift();
+          wakeup(); 
+        } else this.level++;
+      },
+      acquire : async function () {
+        var self=this;
+        if (this.level>0) return this.level--;
+        return new Promise(function (cb) {
+          self.waiters.push(cb);
+        });
+      }
+    }
+    return sema;
+  }
+}
+
+var VM = {
+  threadID:0,
+  threads:[],
+  create : function (options) {
+    options=options||{};
+    var id = VM.threadID++;
+    var semaJoin = Sema.create(0);
+    var semaReady = Sema.create(0);
+    var channel = Channel.create(0);
+    function run(id,verbose) {
+      var receiving,queue=[];
+      var Env = {
+        error : function () { process.send({ error:Array.prototype.slice.call(arguments)}) },
+        end  : function () { process.send({ event:'join' }) },
+        kill  : function () {
+          Env.print('Terminate.');
+          process.exit();
+        },
+        print : function () { process.send({ log:Array.prototype.slice.call(arguments)}) },
+        /* main master-worker channel */
+        receive : async function () {
+          var data;
+          if (queue.length) return queue.shift();
+          return new Promise(function (cb) {
+            receiving=function (data) {
+              cb(data);
+            };
+          });
+        },
+        /* main worker-master channel */
+        send  : function (data) { process.send({ send:data }) },
+        sleep : async function (time) {
+          return new Promise(function (cb) {
+            setTimeout(function () {
+              cb();
+            },time);
+          });    
+        },
+        time  : Date.now,
+        wakeup : function (pid) {
+          /* signal another worker process, typical to wakeup the process, data passing via SM */
+          process.kill(pid,'SIGUSR2');
+        },
+        write : function (key,val) { 
+          process.send({write:key,data:JSONfn.serialize(val)});
+        }
+      };
+      function execute(code,immed,join) {
+        if (immed) {
+          try {
+            with (Env) { return eval('(async function () { '+code+'})()') };
+          } catch (e) { Env.print(e.toString()) };    
+        } else setTimeout(function () {
+          try {
+            if (!join) {
+              with (Env) { eval('(async function () { '+code+'})()') };
+            } else { 
+              /* assuming code == async function () {} */
+              with (Env) { eval('(async function () { await '+code+';end()})()') };
+            }
+          } catch (e) { Env.print(e.toString()) };        
+        },0);
+      }
+      function expression(code) {
+          try {
+            with (Env) { return eval('(async function () { return '+code +'})()') };
+          } catch (e) { Env.print(e.toString()) };    
+      }
+      /* worker-master communication */
+      process.on('message',function (message) {
+        var data;
+        if (message.eval) {
+          execute(message.eval,null,message.join);
+        } else if (message.write) {
+          execute(message.write+'='+message.data+';');
+        } else if (message.read) {
+          process.send({send:expression(message.read)});
+        } else if (message.data) {
+          data=JSON.parse(message.data);
+          for(key in data) {
+            Env[key]=data[key];
+          }
+        } else if (message.send) {
+          if (receiving) receiving(message.send);
+          else queue.push(message.send);
+        } else if (message.signal) {
+          if (e.signal=='SIGINT') Env.kill();
+          Env.print('Got signal '+message.signal);
+        }
+      });
+      process.resume=null;
+      /* worker-worker communication (resume) */
+      process.on('SIGUSR2', function () {
+        var resume;
+        if (process.resume) {
+          resume = process.resume;
+          process.resume=null;
+          resume();
+        }
+      });
+      process.send({event:'ready'});
+      if (verbose) Env.print('Ready.',process.pid,Env.time());
+    }
+    var parameters= [
+      '-e',
+      run.toString().replace(/\n/g,'')+'; run('+id+','+Options.verbose+')'
+      //'console.log(1234)'
+    ];
+    var proOptions = {
+      stdio: [ 'ignore', process.stdout, process.stderr, 'ipc' ]
+    };
+    function error(args) {
+      if (options.stderr) options.stderr(['[VM #'+id+' ERR]'].concat(args));
+      else console.log.apply(null,['(VM #'+id+' ERR]'].concat(args));
+    }
+    function log(args) {
+      if (options.stdout) options.stdout(['[VM #'+id+']'].concat(args));
+      else console.log.apply(null,['[VM #'+id+']'].concat(args));
+    }
+    var childproc = options.bootstrap==false?spawn(program,parameters,proOptions):fork(shell,parameters,proOptions);
+    var thread = { process:childproc, id:id, events:[] };
+    VM.threads.push(thread);
+    if (Options.verbose) console.log('(VM #'+id+') Started.');
+    thread.process.on ('message', function (message) {
+      if (message.log) log(message.log);
+      else if (message.error) error(message.error);
+      else if (message.send) {
+        channel.send(message.send);
+      } else if (message.write) {
+        if (options.message) options.message(message);
+        // else eval(message.write+'='+message.data);  // TODO context!!!!
+      } else if (message.event) {
+        if (thread.events[message.event]) thread.events[message.event](message);
+        switch (message.event) {
+          case 'ready':
+            if (semaReady.level==0) semaReady.release();
+            break;
+          case 'join':
+            if (semaJoin.level==0) semaJoin.release();
+            break;
+        }
+      }
+    });
+    thread.process.on('exit', function () {
+      if (Options.verbose) console.log('(VM #'+id+') Exited.');
+      thread.state=0;
+    });
+    thread.join = async function () {
+      return semaJoin.acquire();
+    };
+    thread.kill = function (immediate) {
+      if (thread.state!=1) return;  // ignore killing
+      thread.state=0;
+      if (immediate)
+        thread.process.kill();
+      else 
+        thread.send({eval:'kill()'});
+    };
+    thread.ready = async function () {
+      return semaReady.acquire();
+    };
+    thread.receive = async function () {
+      return channel.receive();
+    };
+    thread.run = function (code,arg,join) {
+      if (typeof code == 'function') {
+        if (arg==undefined)
+          thread.send({eval:'('+code.toString()+').call(this)', join:join});
+        else
+          thread.send({eval:'('+code.toString()+').call(this,'+JSON.stringify(arg)+')', join:join});
+      } else
+        thread.send({eval:code.toString()});
+    }
+    thread.send = function (data) {
+      return thread.process.send(data);
+    };
+    thread.state=1;
+    return thread;
+  },
+  
+  signal : function (pid) {
+    process.kill(pid,'SIGUSR2');
+  },
+}
+module.exports = {
+  Channel : Channel,  // only for master-worker use
+  Sema    : Sema,     // only for master-worker use
+  VM      : VM,
+  options : Options,
+}
+
+};
+BundleModuleCode['pcsp/sm']=function (module,exports,global,process){
+/*
+** Shared Memory Buffer Segments for Buffer Objects (see bobj module)
+** and alloc/free block management
+*/
+var Options = {
+  version : '0.3.2',
+  verbose : 0
+}
+
+var ffi=require('ffi');
+var ref=require('ref')
+
+if (process.platform=='linux') {
+  var librt_api = {
+    shm_open:['int',['char*','int','long']],
+    sem_open:['void *',['char*', 'int', 'int', 'int']],
+    sem_close:['int', ['void*']],
+    sem_init:['int', ['void*','int','int']],
+    sem_unlink:['int',['char*']],
+    sem_post:['int',['void*']],
+    sem_wait:['int',['void*']],
+  }
+  var librt =ffi.Library('librt',librt_api) 
+  var libc = ffi.Library('libc',{
+    ftruncate:['int',['int','int']],
+    mmap:['void *',['void *','long','int','int','int','long']],
+    printf:['int',['char *','char *']],
+  })
+  for(var p in librt_api) 
+    libc[p]=librt[p];
+} else {
+  // sunos
+  var libc = ffi.Library('libc',{
+    ftruncate:['int',['int','int']],
+    mmap:['void *',['void *','long','int','int','int','long']],
+    printf:['int',['char *','char *']],
+    shm_open:['int',['char*','int','long']],
+    sem_open:['void *',['char*', 'int', 'int', 'int']],
+    sem_close:['int', ['void*']],
+    sem_init:['int', ['void*','int','int']],
+    sem_unlink:['int',['char*']],
+    sem_post:['int',['void*']],
+    sem_wait:['int',['void*']],
+  })
+}
+////////////////////////// mmap ////////////////////////////////////////////
+
+var PROT_NONE       = 0x0             /* pages cannot be accessed */
+/*
+ * Protections are chosen from these bits, or-ed together.
+ * Note - not all implementations literally provide all possible
+ * combinations.  PROT_WRITE is often implemented as (PROT_READ |
+ * PROT_WRITE) and (PROT_EXECUTE as PROT_READ | PROT_EXECUTE).
+ * However, no implementation will permit a write to succeed
+ * where PROT_WRITE has not been set.  Also, no implementation will
+ * allow any access to succeed where prot is specified as PROT_NONE.
+ */
+var PROT_READ       = 0x1             /* pages can be read */
+var PROT_WRITE      = 0x2             /* pages can be written */
+var PROT_EXEC       = 0x4             /* pages can be executed */
+
+/* sharing types:  must choose either SHARED or PRIVATE */
+var MAP_SHARED      = 1               /* share changes */
+var MAP_PRIVATE     = 2               /* changes are private */
+var MAP_TYPE        = 0xf             /* mask for share type */
+
+/* other flags to mmap (or-ed in to MAP_SHARED or MAP_PRIVATE) */
+var MAP_FIXED       = 0x10            /* user assigns address */
+var MAP_NORESERVE   = 0x40            /* don't reserve needed swap area */
+var MAP_LOW32       = 0x80    /* force mapping in lower 4G of address space */
+var MAP_ANON        = 0x100           /* map anonymous pages directly */
+var MAP_ANONYMOUS   =  MAP_ANON        /* (source compatibility) */
+var MAP_ALIGN       = 0x200           /* addr specifies alignment */
+var MAP_TEXT        = 0x400           /* map code segment */
+var MAP_INITDATA    = 0x800           /* map data segment */
+var MAP_ADI         = 0x8000          /* map with ADI enabled */
+
+/////////////////////////// shm_open ///////////////////////////////////////
+// https://opensource.com/article/19/4/interprocess-communication-linux-storage
+
+var O_RDONLY        = 0;
+var O_WRONLY        = 1
+var O_RDWR          = 2
+if (process.platform=='linux') {
+  var O_CREAT         = 0o100
+  var O_EXCL          = 0o200
+} else {
+  // sunos
+  var O_CREAT         = 0x100
+  var O_EXCL          = 0x200
+}
+var	S_IRUSR		= 0o400
+var	S_IWUSR	  = 0o200
+
+//////////////////////////////////////////////////////////////////
+
+var NULL      = -1
+// null terminated strings
+function str2buf(str) {
+  var buf = Buffer(str.length+1);
+  Buffer(str).copy(buf)
+  buf[str.length]=0;
+  return buf
+}
+
+
+
+///////////////////////////// SEMAPHORE /////////////////////////////////
+// Implement a named native and sharable semaphore for SM-Syncing (blocking entire VM)
+function semaphore (name,level) {
+  if (!(this instanceof semaphore)) return new semaphore(name,level);
+  this.name=name;
+  if (Options.verbose) console.log('semaphore',name,level!=undefined?level:'shared')
+  // if level == undefined then join an already existing semaphore only
+  this.sem = libc.sem_open(str2buf(name),level!=undefined?O_CREAT:0,S_IRUSR | S_IWUSR, level);
+  if (this.sem.hexAddress()=="ffffffff") throw "semaphore.create failed";
+  if (level!=undefined) libc.sem_init(this.sem,1,level);
+}
+semaphore.prototype.acquire = function () {
+  return libc.sem_wait(this.sem);
+}
+semaphore.prototype.release = function () {
+  return libc.sem_post(this.sem);
+}
+semaphore.prototype.close = function () {
+  libc.sem_close(this.sem);
+  this.sem=null;
+  return libc.sem_unlink(str2buf(this.name));
+}
+
+var bobj;
+try { bobj=Require('pcsp/bobj') } catch (e) { bobj=require('./bobj') }
+
+var SizeOf=bobj.SizeOf,
+    TypeOf=bobj.TypeOf,
+    Struct=bobj.Struct,
+    ArrayType=bobj.ArrayType;
+    
+
+//////////////// Shared Memory Segment ///////////////////////
+
+function sms(key,size,options) {
+  // key=='<buffer>' -> using JS buffer instead of C memory; not sharable
+  if (!(this instanceof sms)) return new sms(key,size,options);
+  options=options||{}
+  this.options=options;
+  this.verbose=options.verbose||0;
+  this.key=key;
+  this.base=0;
+  this.allocasize=options.freelistSize||512;
+  this.size=size;
+  this.top=size-this.allocasize;
+}
+
+
+// tinyalloc
+sms.prototype.alloc = function (size) {
+  var bprt,bprev,
+      ptr  = this.alloca.heap.free,
+      prev = NULL,
+      num  = size,
+      top  = this.alloca.heap.top;
+  num = (num + this.alloca.alignment - 1) & -this.alloca.alignment;
+  while (ptr != NULL) {
+      bptr=this.alloca.blocks[ptr];
+      var is_top = (bptr.addr + bptr.size >= top) && (bptr.addr + num <= this.alloca.heap.limit);
+      if (is_top || bptr.size >= num) {
+          if (prev != NULL) {
+              bprev=this.alloca.blocks[prev];
+              bprev.next = bptr.next;
+          } else {
+              this.alloca.heap.free = bptr.next;
+          }
+          bptr.next  = this.alloca.heap.used;
+          this.alloca.heap.used = ptr;
+          if (is_top) {
+              // console.log("resize top block");
+              bptr.size = num;
+              this.alloca.heap.top = bptr.addr + num;
+          } else if (!this.alloca.disable_split && this.alloca.heap.fresh != NULL) {
+              var excess = bptr.size - num;
+              if (excess >= this.alloca.heap.split_thresh) {
+                  blocksize    = num;
+                  var split = this.alloca.heap.fresh,
+                      bsplit = this.alloca.blocks[split];
+                  this.alloca.heap.fresh  = bsplit.next;
+                  bsplit.addr  = bptr.addr + num;
+                  // console.log("split");
+                  // console.log(bsplit.addr);
+                  bsplit.size = excess;
+                  this.insert_block(split,bsplit);
+                  if (!this.alloca.disable_compact) this.compact();
+              }
+          }
+          return bptr.addr;
+      }
+      prev = ptr;
+      ptr  = bptr.next;
+  }
+  // no matching free blocks
+  // see if any other blocks available
+  var new_top = top + num;
+  if (this.alloca.heap.fresh != NULL && new_top <= this.alloca.limit) {
+      ptr         = this.alloca.heap.fresh;
+      bptr        = this.alloca.blocks[ptr];
+      this.alloca.heap.fresh  = bptr.next;
+      bptr.addr   = top;
+      bptr.next   = this.alloca.heap.used;
+      bptr.size   = num;
+      this.alloca.heap.used  = ptr;
+      this.alloca.heap.top   = new_top;
+      return bptr.addr;
+  }
+  return NULL;
+}
+
+sms.prototype.calloc = function (size) {
+  var addr=this.alloc(size);
+  if (addr) this.buffer.fill(0,addr,addr+size);
+  return addr
+}
+
+// compact heap block list (tinyalloc)
+sms.prototype.compact = function () {
+  var bptr,bprev,bscan,
+      ptr = this.alloca.heap.free,
+      prev, scan;
+
+  while (ptr != NULL) {
+      bptr = this.alloca.blocks[ptr];
+      prev = ptr;
+      bprev = bptr;
+      scan = bptr.next;
+      bscan = this.alloca.blocks[scan];
+      while (scan != NULL &&
+             bprev.addr + bprev.size == bscan.addr) {
+          // print_s("merge");
+          // print_i((size_t)scan);
+          prev = scan;
+          scan = bscan.next;
+      }
+      if (prev != ptr) {
+          var new_size =
+              bprev.addr - bptr.addr + bprev.size;
+          // print_s("new size");
+          // print_i(new_size);
+          bptr.size   = new_size;
+          var next = bprev.next;
+          // make merged blocks available
+          this.release_blocks(bptr.next, bprev.next);
+          // relink
+          bptr.next = next;
+      }
+      ptr = bptr.next;
+  }
+}
+// Create and open shared memory segment (or create a non-shareable buffer insteda, key=='<buffer>')
+sms.prototype.create = function () {
+  if (this.key != '<buffer>') {
+    this.fd = libc.shm_open(str2buf(this.key),O_RDWR|O_CREAT, S_IRUSR | S_IWUSR);
+    if (this.fd < 0) throw ("sms.create: (shm_open) failed: "+this.fd);
+    libc.ftruncate(this.fd,this.size)
+    // map shm in process space
+    var pa = libc.mmap(ref.NULL_POINTER, this.size ,PROT_READ | PROT_WRITE, MAP_SHARED, this.fd, 0);
+    this.memory = pa;
+    this.buffer = ref.reinterpret(pa, this.size, 0);
+  } else this.buffer = Buffer(this.size); // generic JS buffer; not shareable
+  
+
+  /////////////// tinyalloc block management //////////////
+  var blocks = ArrayType({
+    addr:'int',
+    next:'int',
+    size:'int',
+  });
+  var heapControl = Struct({
+    free:'int',
+    used:'int',
+    fresh:'int',
+    top:'int'
+  })
+  var heap_blocks = Math.floor((this.allocasize-heapControl.size())/(SizeOf('int')*3));
+  //// block lists at beginning of segment!!! ////
+  this.alloca = {
+    blocks : blocks(this.buffer,heapControl.size(),heap_blocks),
+    heap   : heapControl(this.buffer,0),
+    base   : 0,
+    limit  : this.top+this.allocasize,
+    max_blocks : heap_blocks-1,
+    split_thresh : 16,
+    alignment : 4,
+    disable_compact : false,
+    disable_split   : false, 
+  }
+  if (Options.verbose)
+    console.log('[SM '+this.key+'] Created shared segment ('+this.allocasize+'/'+this.size+') with blocks',heap_blocks,'heap_max_blocks',this.alloca.max_blocks);
+  this.alloca.heap.free=NULL;
+  this.alloca.heap.used=NULL;  
+  this.alloca.heap.fresh=1;
+  this.alloca.heap.top=this.allocasize;
+  
+  var i = this.alloca.heap.fresh; 
+  while (i<heap_blocks-1) {
+    var block = this.alloca.blocks[i];
+    block.next = i + 1;
+    i++;
+  }
+  this.alloca.blocks[i].next=NULL;
+  
+  ///////////////////////////////////////////////////////
+  
+}
+
+// Returns (free) a memory block. Free is either the block address or a buffer object
+// with an __address attribute.
+sms.prototype.free = function (free) {
+  if (typeof free == 'object' && free.__address) free=free.__address;
+  else if (typeof free != 'number') throw "free: argument must be an address number";
+  var bblock,block = this.alloca.heap.used;
+  var bprev,prev  = NULL;
+  while (block != NULL) {
+      bblock=this.alloca.blocks[block];
+      if (free == bblock.addr) {
+          if (prev != NULL) {
+              bprev=this.alloca.blocks[prev];
+              bprev.next = bblock.next;
+          } else {
+              this.alloca.heap.used = bblock.next;
+          }
+          this.insert_block(block);
+          if (!this.alloca.disable_compact) this.compact();
+          return true;
+      }
+      prev  = block;
+      block = bblock.next;
+  }
+  return false;
+}
+
+sms.prototype.info = function () {
+  return { fd : this.fd, size : this.size, top: this.top }
+}
+
+// insert a block (tinyalloc)
+sms.prototype.insert_block = function (block,bblock) {
+  if (!bblock) bblock = this.alloca.blocks[block];
+  if (!this.alloca.disable_compact) {
+    var bptr, ptr  = this.alloca.heap.free;
+    var bprev, prev = NULL;
+    while (ptr != NULL) {
+        bptr = this.alloca.blocks[ptr];
+        if (bblock.addr <= bptr.addr) {
+            // print_s("insert");
+            // print_i((size_t)ptr);
+            break;
+        }
+        prev = ptr;
+        ptr  = bptr.next;
+    }
+    if (prev != NULL) {
+        bprev = this.alloca.blocks[prev];
+        if (ptr == NULL) {
+            // print_s("new tail");
+        }
+        bprev.next = block;
+    } else {
+        // print_s("new head");
+        this.alloca.heap.free = block;
+    }
+    bblock.next = ptr;
+  } else {
+    bblock.next = this.alloca.heap.free;
+    this.alloca.heap.free  = block;
+  }
+}
+// create a lock object for an address (block) by using a shared semaphore
+sms.prototype.lock = function (addr,create) {
+  var level=create?1:undefined;
+  var sema = semaphore('/'+addr.toString(16),level);
+  return sema;
+}
+
+// Map already created shared memory segment
+sms.prototype.map = function () {
+  this.fd = libc.shm_open(str2buf(this.key),O_RDWR, S_IRUSR | S_IWUSR);
+  if (this.fd < 0) throw "sms.open: (shm_open) failed"
+  // map shm in process space
+  var pa = libc.mmap(ref.NULL_POINTER, this.size ,PROT_READ | PROT_WRITE, MAP_SHARED, this.fd, 0);
+  this.memory = pa;
+  this.buffer = ref.reinterpret(pa, this.size, 0);
+
+  /////////////// tinyalloc block management //////////////
+  var blocks = ArrayType({
+    addr:'int',
+    next:'int',
+    size:'int',
+  });
+  var heapControl = Struct({
+    free:'int',
+    used:'int',
+    fresh:'int',
+    top:'int'
+  })
+  var heap_blocks = Math.floor((this.allocasize-heapControl.size())/(SizeOf('int')*3));
+  //// block lists at beginning of segment!!! ////
+  this.alloca = {
+    blocks : blocks(this.buffer,heapControl.size(),heap_blocks),
+    heap   : heapControl(this.buffer,0),
+    base   : 0,
+    limit  : this.top+this.allocasize,
+    max_blocks : heap_blocks-1,
+    split_thresh : 16,
+    alignment : 4,
+    disable_compact : false,
+    disable_split   : false, 
+  }
+  if (Options.verbose)
+    console.log('[SM '+this.key+'] Mapped shared segment ('+this.allocasize+'/'+this.size+') with blocks',heap_blocks,'heap_max_blocks',this.alloca.max_blocks);
+}
+
+// allocate or share an object (scalar, struct, array)
+sms.prototype.object = function (typcon,elements,address,parameter) {
+
+  if (typeof elements == 'object') { parameter=elements; elements=1; }
+  if (typeof elements == 'boolean') { address=elements; elements=1; }
+  if (typeof elements == 'undefined') elements=1; 
+
+  var size1 = typcon.size(parameter);
+ 
+  if (typeof address=='undefined') address = this.calloc(size1*elements);
+
+  if (Options.verbose) console.log('sm.object:',address,size1,elements,parameter)
+  
+  return typcon.class=='Array'?typcon(this.buffer,address,elements):typcon(this.buffer,address);
+}
+
+
+sms.prototype.release_blocks = function (scan, to) {
+  var bscan = this.alloca.blocks[scan], 
+      bto = this.alloca.blocks[to],
+      bscan_next, scan_next;
+  while (scan != to) {
+      // print_s("release");
+      // print_i((size_t)scan);
+      scan_next   = bscan.next;
+      bscan_next  = this.alloca.blocks[scan_next];
+      bscan.next  = this.alloca.heap.fresh;
+      this.alloca.heap.fresh = scan;
+      bscan.addr  = 0;
+      bscan.size  = 0;
+      scan        = scan_next;
+  }
+}
+
+sms.prototype.stats = function () {
+  var self=this;
+  function count_blocks(ptr) {
+    var bptr, num = 0;
+    while (ptr != NULL) {
+        num++;
+        bptr = self.alloca.blocks[ptr];
+        ptr = bptr.next;
+    }
+    return num;
+  }
+  return {
+    free  : this.alloca.heap.free,
+    used  : this.alloca.heap.used,
+    fresh : this.alloca.heap.fresh,
+    nfree : count_blocks(this.alloca.heap.free),
+    nused : count_blocks(this.alloca.heap.used),
+    nfresh : count_blocks(this.alloca.heap.fresh),
+    ntotal : this.alloca.max_blocks,
+  }
+}
+sms.version = Options.version;
+
+//////////////////////////////////////////////////////////////////
+module.exports = {
+  sm : sms,
+  semaphore : semaphore,
+  options   : Options,
+}
+
+};
+BundleModuleCode['pcsp/bobj']=function (module,exports,global,process){
+/*
+** Buffer Objects 
+*/
+var version='0.11.1'
+
+var NULL = -1
+//////////////////// BUFFER SEGMENT OBJECT MEMORY ////////////////////
+function SizeOf(typ,types,parameter) {
+  var eltyp  = typ.match(/([^\[\*]+)/)[1],
+      length  = typ.match(/\[([^\]]*)\]/),  // array length if any
+      pointer = typ.indexOf('*')!=-1;
+  if (length) {
+    length=length[1];
+    if (parameter) for(var p in parameter) length=length.replace(p,parameter[p]);
+    length=Number(length);
+  } else length=1;
+  if (pointer) return 4*length;
+  eltyp=eltyp.trim();
+  if (parameter && parameter[eltyp]) eltyp=parameter[eltyp];
+  switch (eltyp) {
+    case 'char' : return length;
+    case 'int'  : return 4*length;
+    case 'void' : return 4*length;
+    case 'float': return 4*length;
+    default     : if (types && types[eltyp]) return length*types[eltyp].size();
+  }
+}
+function TypeOf(typ,parameter) {
+  var eltyp = typ.match(/([^\[\*]+)/)[1],
+      length  = typ.match(/\[([^\]]*)\]/),  // array length if any
+      pointer = typ.indexOf('*')!=-1,
+      array = false,
+      size0,
+      size; // total size of this type
+  if (length) {
+    length=length[1];
+    if (parameter) for(var p in parameter) length=length.replace(p,parameter[p]);
+    length=Number(length);
+    array=true;
+  } else length=1;
+  eltyp=eltyp.trim();
+  if (parameter && parameter[eltyp]) eltyp=parameter[eltyp];
+  switch (eltyp) {
+    case 'char' :  size0=1; size = 1*length ; break;
+    case 'int'  :  size0=4; size = 4*length ; break;
+    case 'void' :  size0=4; size = 4*length ; break;
+    case 'float':  size0=4; size = 4*length ; break;
+  }
+  if (pointer) { size0=4; size=4 };
+  return { typ : eltyp, length:length, size : size, size0:size0, pointer:pointer, array:array }
+}
+
+// Structure Type Object constructor
+function Struct(desc,name,types) {
+  var typConstr = function (buf,addr,parameter) {
+    var bo = {}, offset=0;
+    for(var key in desc) {
+      var dt = TypeOf(desc[key],parameter);
+      // console.log(key,dt)
+      switch (dt.typ) {
+        case 'int':
+          if (!dt.array) {
+            (function (offset) { Object.defineProperty(bo, key, {
+              get() {
+                return buf.readInt32LE(addr+offset);
+              },
+              set(value) {
+                buf.writeInt32LE(value,addr+offset);
+              }
+            })})(offset);
+            offset += dt.size;
+          } else {
+            bo[key]=ArrayType(dt.typ)(buf,addr+offset,dt.length);
+            offset += dt.size;
+          }
+          break;
+        case 'float':
+          if (!dt.array) {
+            (function (offset) { Object.defineProperty(bo, key, {
+              get() {
+                return buf.readFloatLE(addr+offset);
+              },
+              set(value) {
+                buf.writeFloatLE(value,addr+offset);
+              }
+            })})(offset);
+            offset += dt.size;
+          } else {
+            bo[key]=ArrayType(dt.typ)(buf,addr+offset,dt.length);
+            offset += dt.size;
+          }
+          break;
+        case 'void':      
+          if (dt-pointer && !dt.array) {
+            (function (offset) { Object.defineProperty(bo, key, {
+              get() {
+                return buf.readInt32LE(addr+offset);
+              },
+              set(value) {
+                buf.writeInt32LE(value,addr+offset);
+              }
+            })})(offset);
+            offset += dt.size;
+          } else {
+            bo[key]=ArrayType(dt.typ)(buf,addr+offset,dt.length);
+            offset += dt.size;
+          }
+          break;
+        case 'char':
+          if (dt.array) {
+            (function (offset,size) { Object.defineProperty(bo, key, {
+              get() {
+                var end = buf.indexOf(0,addr+offset);
+                return buf.slice(addr+offset,end).toString('utf8');
+              },
+              set(value) {
+                Buffer(value).copy(buf,addr+offset);
+              }
+            })})(offset,dt.size);
+            offset += dt.size;
+          } else if (!dt.pointer) {
+            (function (offset) { Object.defineProperty(bo, key, {
+              get() {
+                return String.fromCharCode(buf[addr+offset]);
+              },
+              set(value) {
+                buf[addr+offset]=value.charCodeAt(0);
+              }
+            })})(offset);
+            offset += dt.size;          
+          }
+          break;
+        default:
+          // console.log(dt);
+          if (dt.pointer && !dt.array) {
+             (function (offset,size,dt) { 
+                var typcon;
+                if (dt.typ==name) typcon=typConstr;
+                else if (types) typcon=types[dt.type];
+                if (!typcon) throw "typConstr: Unknown type "+dt.typ;
+                bo['_'+key]=NULL; // shadow pointer
+                var b2o,addr;
+                Object.defineProperty(bo, key, {
+                get() {
+                  if (bo['_'+key]!=NULL){
+                    if (!b2o || bo['_'+key]!=addr) {
+                      addr=bo['_'+key];
+                      b2o=typConstr(buf,addr);  // cache wrapper
+                    }
+                    return b2o;
+                  } else throw "typConstr: NULL pointer ("+name+"."+key+")"
+                },
+                set(ref) {
+                  if (typeof ref=='number') bo['_'+key]=ref;
+                  if (typeof ref=='object' && ref.__address) bo['_'+key]=ref.__address;                  
+                }
+              })})(offset,dt.size,dt);
+              offset += dt.size;
+          } else if (!dt.pointer && dt.array) {
+            if (types[dt.typ]) {
+            console.log(types[dt.typ])
+              bo[key]=ArrayType(types[dt.typ].desc)(buf,addr+offset,dt.length);
+              offset += dt.size; 
+            } else throw "Struct: unknown struct type "+dt.typ;         
+          }
+          break;    
+      }
+    }
+    bo.__address=addr; bo.__size=offset; bo.__desc=desc; bo.__parameter=parameter; bo.__name=name;
+    bo.__class='Struct';
+    return bo;
+  }
+  // optionally parameterised size computation int [N] => {N:8} ...
+  typConstr.size=function (parameter) {
+    var dataSize=0;
+    for(var key in desc) dataSize += SizeOf(desc[key],types,parameter);
+    return dataSize;
+  }
+  typConstr.name;
+  typConstr.class='Struct';
+  typConstr.desc=desc;
+  return typConstr;
+}
+Struct.cache=[];
+// create a share of an object
+Struct.deserialize = function (buffer,share) {
+  // TODO types mapping
+  // TODO struct caching
+  var st = Struct(share.struct,share.name,share.types);
+  return st(buffer,share.address,share.parameter);
+}
+
+Struct.serialize = function (bo) {
+  // TODO types descriptor mapping
+  return { address: bo.__address, size:bo.__size, struct:bo.__desc, name: bo.__name, parameter: bo.__parameter } 
+}
+
+// Array Type Object constructor
+function ArrayType(desc,name,types) {
+  var typConstr = function (buf,addr,length,parameter) {
+    var bo = {}, size=0;
+    switch (desc) {
+      case 'char':
+        size=1;
+        bo = new Proxy([],{
+          get : function (target,name) {
+            var index=Number(name); if (length && index>length-1) throw "Array index out of bound";
+            return String.fromCharCode(buf[addr+index*size]);
+          },
+          set : function (target,name,val) {
+            var index=Number(name); if (length && index>length-1) throw "Array index out of bound";
+            return buf[addr+index*size]=val.charCodeAt(0);
+          },
+        });
+        break;
+      case 'int':
+      case 'void':
+        size=4;
+        bo = new Proxy([],{
+          get : function (target,name) {
+            var index=Number(name); if (length && index>length-1) throw "Array index out of bound";
+            return buf.readInt32LE(addr+index*size);
+          },
+          set : function (target,name,val) {
+            var index=Number(name); if (length && index>length-1) throw "Array index out of bound";
+            return buf.writeInt32LE(val,addr+index*size);
+          }
+        });
+        break;
+      case 'float':
+        size=4;
+        bo = new Proxy([],{
+          get : function (target,name) {
+            var index=Number(name); if (length && index>length-1) throw "Array index out of bound";
+            return buf.readFloatLE(addr+index*size);
+          },
+          set : function (target,name,val) {
+            var index=Number(name); if (length && index>length-1) throw "Array index out of bound";
+            return buf.writeFloatLE(val,addr+index*size);
+          }
+        });
+        break;
+      default:
+        // structure type?
+        size=0;
+        for(var key in desc) size += SizeOf(desc[key],parameter);
+        if (typeof desc == 'object') {
+          // we have to create a structure object each time an array element is dereferenced!
+          // but caching and remembering the last access struct object wrapper
+          var cache,last;
+          var st = Struct(desc);
+          bo = new Proxy([],{
+            get : function (target,name) {
+              var index=Number(name),offset=0,ro={}; if (length && index>length-1) throw "Array index out of bound";
+              if (!cache || last != index) {
+                cache=st(buf,addr+index*size); last=index;
+                return cache
+              } else return cache
+            },
+            set : function (target,name,val) {
+              // val must be entire updated struct (for copy)
+              var index=Number(name),ro={};  // requires getters and setters
+            }
+          });        
+        }
+        break;
+    }
+    bo.__address=addr; bo.__size=size; bo.__desc=desc; bo.__parameter=parameter; bo.__name=name;
+    bo.__class='Array';
+    return bo;
+  }
+  computeSize=false;
+  typConstr.size=function (parameter) {
+    return typConstr({},0,0,parameter);
+  };
+  typConstr.class='Array';
+  typConstr.name=name;
+  typConstr.desc=desc;  
+  return typConstr;  
+}
+
+
+
+// test()
+
+module.exports = {
+  SizeOf:SizeOf,
+  TypeOf:TypeOf,
+  Struct:Struct,
+  ArrayType:ArrayType,
+  version : version
+}
+};
+
+var Base64=Require('os/base64');
+module.exports = Require('plugins/pcsp/pcsp.js');
+if (typeof window != 'undefined') for(var p in module.exports) window[p]=module.exports[p];
+return module.exports;
