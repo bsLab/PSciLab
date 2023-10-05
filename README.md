@@ -1,5 +1,14 @@
 # PSciLAB: Hybrid Distributed-Parallel Scientific Software Laboratory
 
+---
+
+**Starting from 10/2023, this repository is not updated frequently (or at all) and any recent updates are only availble here**:
+
+http://git.edu-9.de/sbosse/workbook
+
+---
+
+
 ## Author
 
 ```
